@@ -75,6 +75,7 @@ typedef struct {
     float4 color;
     half3  eyePosition;
     half3  normal;
+    float  pointSize [[point_size]];
 } ColorInOut;
 
 
@@ -87,6 +88,8 @@ vertex ColorInOut anchorGeometryVertexTransform(Vertex in [[stage_in]],
     ColorInOut out;
     
     // Make position a float4 to perform 4x4 matrix math on it
+    //float4 position = float4(0.0, 0.0, 0.0, 1.0);
+    
     float4 position = float4(in.position, 1.0);
     
     float4x4 modelMatrix = instanceUniforms[iid].modelMatrix;
@@ -111,6 +114,7 @@ vertex ColorInOut anchorGeometryVertexTransform(Vertex in [[stage_in]],
     float4 normal = modelMatrix * float4(in.normal.x, in.normal.y, in.normal.z, 0.0f);
     out.normal = normalize(half3(normal.xyz));
     
+ //   out.pointSize = 10.0;
     return out;
 }
 
@@ -165,3 +169,99 @@ fragment float4 anchorGeometryFragmentLighting(ColorInOut in [[stage_in]],
     // colorMap for this fragment's alpha value
     return float4(color, in.color.w);
 }
+
+
+// Star geometry vertex function
+vertex ColorInOut starVertexShader(
+                                   uint                    vertexID  [[ vertex_id ]],
+                                   const device float4*    positions  [[ buffer(starRenderBufferIndexPositions) ]],
+                                   const device uchar4*    color     [[ buffer(starRenderBufferIndexColors)    ]],
+                                   constant StarUniforms & uniforms  [[ buffer(starRenderBufferIndexUniforms)  ]],
+                                   constant SharedUniforms &sharedUniforms [[ buffer(kBufferIndexSharedUniforms) ]])
+/*
+                                   Vertex in [[stage_in]],
+                                   constant InstanceUniforms *instanceUniforms [[ buffer(kBufferIndexInstanceUniforms) ]],
+                                   ushort vid [[vertex_id]],
+                                   ushort iid [[instance_id]])
+*/
+{
+    ColorInOut out;
+    
+    // Make position a float4 to perform 4x4 matrix math on it
+    float4 position = float4(positions[vertexID]);
+    
+  //  float4x4 modelMatrix = instanceUniforms[iid].modelMatrix;
+    float4x4 modelViewMatrix = sharedUniforms.viewMatrix; // * modelMatrix;
+    
+    // Calculate the position of our vertex in clip space and output for clipping and rasterization
+    out.position = sharedUniforms.projectionMatrix * modelViewMatrix * position;
+    
+    // Calculate the position of our vertex in eye space
+    out.eyePosition = half3((modelViewMatrix * position).xyz);
+    
+    // Rotate our normals to world coordinates
+    float4 normal = /*modelMatrix */ float4(1.0f, 1.0f, 1.0f, 0.0f);
+    out.normal = normalize(half3(normal.xyz));
+    
+
+
+    
+    out.pointSize = 25.0 / distance((modelViewMatrix * position).xyz, out.position.xyz);
+    
+    return out;
+}
+
+// Star geometry fragment function
+fragment float4 starFragmentShader(ColorInOut in [[stage_in]],
+                                   constant SharedUniforms &uniforms [[ buffer(kBufferIndexSharedUniforms) ]]) {
+   /*
+    float3 normal = float3(in.normal);
+    
+    // Calculate the contribution of the directional light as a sum of diffuse and specular terms
+    float3 directionalContribution = float3(0);
+    {
+        // Light falls off based on how closely aligned the surface normal is to the light direction
+        float nDotL = saturate(dot(normal, -uniforms.directionalLightDirection));
+        
+        // The diffuse term is then the product of the light color, the surface material
+        // reflectance, and the falloff
+        float3 diffuseTerm = uniforms.directionalLightColor * nDotL;
+        
+        // Apply specular lighting...
+        
+        // 1) Calculate the halfway vector between the light direction and the direction they eye is looking
+        float3 halfwayVector = normalize(-uniforms.directionalLightDirection - float3(in.eyePosition));
+        
+        // 2) Calculate the reflection angle between our reflection vector and the eye's direction
+        float reflectionAngle = saturate(dot(normal, halfwayVector));
+        
+        // 3) Calculate the specular intensity by multiplying our reflection angle with our object's
+        //    shininess
+        float specularIntensity = saturate(powr(reflectionAngle, uniforms.materialShininess));
+        
+        // 4) Obtain the specular term by multiplying the intensity by our light's color
+        float3 specularTerm = uniforms.directionalLightColor * specularIntensity;
+        
+        // Calculate total contribution from this light is the sum of the diffuse and specular values
+        directionalContribution = diffuseTerm + specularTerm;
+    }
+    
+    // The ambient contribution, which is an approximation for global, indirect lighting, is
+    // the product of the ambient light intensity multiplied by the material's reflectance
+    float3 ambientContribution = uniforms.ambientLightColor;
+    
+    // Now that we have the contributions our light sources in the scene, we sum them together
+    // to get the fragment's lighting value
+    float3 lightContributions = ambientContribution + directionalContribution;
+    
+    // We compute the final color by multiplying the sample from our color maps by the fragment's
+    // lighting value
+    float3 color = in.color.rgb * lightContributions;
+    
+    // We use the color we just computed and the alpha channel of our
+    // colorMap for this fragment's alpha value
+    return float4(color, in.color.w);
+    */
+    return float4(1.0f, 1.0f, 1.0f, 1.0f);
+}
+

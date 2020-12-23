@@ -59,4 +59,25 @@ typedef struct {
     matrix_float4x4 modelMatrix;
 } InstanceUniforms;
 
+typedef enum StarRenderBufferIndex
+{
+    starRenderBufferIndexPositions = 0,
+    starRenderBufferIndexColors   = 1,
+    starRenderBufferIndexUniforms = 2,
+    starRenderBufferSharedUniforms = 3
+} StarRenderBufferIndex;
+
+typedef enum StarTextureIndex
+{
+    starTextureIndexColorMap = 0,
+} StarTextureIndex;
+
+typedef struct
+{
+    matrix_float4x4 mvpMatrix;
+    float pointSize;
+    
+} StarUniforms;
+
+
 #endif /* ShaderTypes_h */

@@ -9,6 +9,7 @@ import Foundation
 import Metal
 import MetalKit
 import ARKit
+import simd
 
 protocol RenderDestinationProvider {
     var currentRenderPassDescriptor: MTLRenderPassDescriptor? { get }
@@ -36,6 +37,11 @@ let kImagePlaneVertexData: [Float] = [
     1.0,  1.0,  1.0, 0.0,
 ]
 
+// The point size (in pixels) of rendered bodied
+let bodyPointSize = 15;
+
+// Size of gaussian map to create rounded smooth points
+let gaussianMapSize = 64;
 
 class Renderer {
     let session: ARSession
@@ -54,6 +60,14 @@ class Renderer {
     var anchorDepthState: MTLDepthStencilState!
     var capturedImageTextureY: CVMetalTexture?
     var capturedImageTextureCbCr: CVMetalTexture?
+    var starPipelineState: MTLRenderPipelineState!
+    var starDepthState:    MTLDepthStencilState!
+    var gaussianMap: MTLTexture!
+    var _colors: MTLBuffer!
+    var positionsBuffer: MTLBuffer!
+    var dynamicUniformBuffers = [MTLBuffer]()
+    var currentBufferIndex: Int = 0
+    //var renderScale: Float
     
     // Captured image texture cache
     var capturedImageTextureCache: CVMetalTextureCache!
@@ -89,14 +103,62 @@ class Renderer {
     
     // Flag for viewport size changes
     var viewportSizeDidChange: Bool = false
-    
-    
+       
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
         self.session = session
         self.device = device
         self.renderDestination = renderDestination
         loadMetal()
         loadAssets()
+        generateGaussianMap()
+        initializeData()
+    }
+    
+    func generateGaussianMap() {
+        let textureDescriptor = MTLTextureDescriptor()
+        textureDescriptor.textureType = .type2D
+        textureDescriptor.pixelFormat = .r8Unorm
+        textureDescriptor.width = gaussianMapSize
+        textureDescriptor.height = gaussianMapSize
+        textureDescriptor.mipmapLevelCount = 1
+        textureDescriptor.cpuCacheMode = .defaultCache
+        textureDescriptor.usage = .shaderRead
+        
+        gaussianMap = device.makeTexture(descriptor: textureDescriptor)
+
+        //let dataSize: Int = textureDescriptor.width * textureDescriptor.height * MemoryLayout<UInt8>.size
+        
+        let nDelta = vector_float2 ( 2.0 / Float(textureDescriptor.width), 2.0 / Float(textureDescriptor.height ))
+
+//        var texelData = device.makeBuffer(length: MemoryLayout<UInt8>.size * dataSize , options: [])
+        var texel = [UInt8]()
+        
+        var SNormCoordinate = vector_float2 (-1.0, -1.0)
+        var distance, t, color : Float
+        
+        for y in 0..<textureDescriptor.height {
+            SNormCoordinate.y = -1.0 + Float(y) * nDelta.y
+            
+            for x in 0..<textureDescriptor.width {
+                SNormCoordinate.x = -1.0 + Float(x) * nDelta.x
+                
+                distance = length(SNormCoordinate)
+                t = (distance < 1.0) ? distance: 1.0
+                
+                color = (( 2.0 * t - 3.0) * t * t + 1.0)
+                
+                texel.append(UInt8(255 * color))
+            }
+        }
+        
+        
+        let region = MTLRegion(origin: MTLOrigin(x: 0, y: 0, z: 0), size: MTLSize(width: textureDescriptor.width, height: textureDescriptor.height, depth: 1))
+        
+        gaussianMap.replace(region: region, mipmapLevel: 0, withBytes: texel, bytesPerRow: MemoryLayout<UInt8>.size * textureDescriptor.width)
+ 
+        gaussianMap.label = "Gaussian Map"
+        
+
     }
     
     func drawRectResized(size: CGSize) {
@@ -138,6 +200,7 @@ class Renderer {
                 
                 drawCapturedImage(renderEncoder: renderEncoder)
                 drawAnchorGeometry(renderEncoder: renderEncoder)
+                drawStars(renderEncoder: renderEncoder, numBodies: 4096)
                 
                 // We're done encoding commands
                 renderEncoder.endEncoding()
@@ -178,6 +241,14 @@ class Renderer {
         anchorUniformBuffer = device.makeBuffer(length: anchorUniformBufferSize, options: .storageModeShared)
         anchorUniformBuffer.label = "AnchorUniformBuffer"
         
+        // Create and allocate the dynamic uniform buffer objects.
+        for i in 0..<kMaxBuffersInFlight
+        {
+            // Indicate shared storage so that both the  CPU can access the buffers
+            dynamicUniformBuffers.append(device.makeBuffer(length: MemoryLayout<StarUniforms>.size, options: .storageModeShared)!)
+            dynamicUniformBuffers[i].label = "UniformBuffer" + String(i)
+        }
+
         // Create a vertex buffer with our image plane vertex data.
         let imagePlaneVertexDataCount = kImagePlaneVertexData.count * MemoryLayout<Float>.size
         imagePlaneVertexBuffer = device.makeBuffer(bytes: kImagePlaneVertexData, length: imagePlaneVertexDataCount, options: [])
@@ -289,9 +360,61 @@ class Renderer {
         anchorDepthStateDescriptor.depthCompareFunction = .less
         anchorDepthStateDescriptor.isDepthWriteEnabled = true
         anchorDepthState = device.makeDepthStencilState(descriptor: anchorDepthStateDescriptor)
+
+        let starVertexFunction = defaultLibrary.makeFunction(name: "starVertexShader")!
+        let starFragmentFunction = defaultLibrary.makeFunction(name: "starFragmentShader")!
+    
+        let starPipelineDescriptor = MTLRenderPipelineDescriptor()
+        starPipelineDescriptor.label = "StarRenderPipeline"
+        starPipelineDescriptor.sampleCount = renderDestination.sampleCount
+        starPipelineDescriptor.vertexFunction = starVertexFunction
+        starPipelineDescriptor.fragmentFunction = starFragmentFunction
+        starPipelineDescriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
+        starPipelineDescriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
+        starPipelineDescriptor.stencilAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
+        starPipelineDescriptor.colorAttachments[0].isBlendingEnabled = true;
+        starPipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
+        starPipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
+        starPipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        starPipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor  = .sourceAlpha
+        starPipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .one
+        starPipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .one
+        
+        do {
+            try starPipelineState = device.makeRenderPipelineState(descriptor: starPipelineDescriptor)
+        } catch let error {
+            print("Failed to created star pipeline state, error \(error)")
+        }
+        
+        let starDepthStateDescriptor = MTLDepthStencilDescriptor()
+        starDepthStateDescriptor.depthCompareFunction = .less
+        starDepthStateDescriptor.isDepthWriteEnabled = true
+        starDepthState = device.makeDepthStencilState(descriptor: starDepthStateDescriptor)
         
         // Create the command queue
+        
+        setNumRenderBodies(numBodies: 4096)
+        
         commandQueue = device.makeCommandQueue()
+    }
+
+    func setNumRenderBodies(numBodies: Int) {
+        if (_colors == nil || ((_colors.length / MemoryLayout<vector_uchar4>.size)) < numBodies) {
+            // If the number of colors stored is less than the number of bodies, recreate the color buffer
+
+            let bufferSize = numBodies * MemoryLayout<vector_uchar4>.size
+            
+            _colors = device.makeBuffer(length: bufferSize, options: .storageModeShared) // in MacOs this is Managed, maybe we need only gpu or something.
+            _colors.label = "Colors"
+            
+            let colors = _colors.contents().assumingMemoryBound(to: vector_uchar4.self)
+            
+            for i in 0..<numBodies {
+                colors[i].x = UInt8(arc4random_uniform(256))
+                colors[i].y = UInt8(arc4random_uniform(256))
+                colors[i].z = UInt8(arc4random_uniform(256))
+            }
+        }
     }
     
     func loadAssets() {
@@ -345,6 +468,8 @@ class Renderer {
             return
         }
         
+        randomMoveStars()
+        
         updateSharedUniforms(frame: currentFrame)
         updateAnchors(frame: currentFrame)
         updateCapturedImageTextures(frame: currentFrame)
@@ -396,14 +521,23 @@ class Renderer {
         for index in 0..<anchorInstanceCount {
             let anchor = frame.anchors[index + anchorOffset]
             
+            
             // Flip Z axis to convert geometry from right handed to left handed
             var coordinateSpaceTransform = matrix_identity_float4x4
-            coordinateSpaceTransform.columns.2.z = -1.0
+            coordinateSpaceTransform.columns.2.z = -1
+ 
             
             let modelMatrix = simd_mul(anchor.transform, coordinateSpaceTransform)
             
             let anchorUniforms = anchorUniformBufferAddress.assumingMemoryBound(to: InstanceUniforms.self).advanced(by: index)
             anchorUniforms.pointee.modelMatrix = modelMatrix
+            
+      /*      print(anchorUniforms.pointee.modelMatrix.columns.0.x, anchorUniforms.pointee.modelMatrix.columns.1.x, anchorUniforms.pointee.modelMatrix.columns.2.x, anchorUniforms.pointee.modelMatrix.columns.3.x)
+            print(anchorUniforms.pointee.modelMatrix.columns.0.y, anchorUniforms.pointee.modelMatrix.columns.1.y, anchorUniforms.pointee.modelMatrix.columns.2.y, anchorUniforms.pointee.modelMatrix.columns.3.y)
+            print(anchorUniforms.pointee.modelMatrix.columns.0.z, anchorUniforms.pointee.modelMatrix.columns.1.z, anchorUniforms.pointee.modelMatrix.columns.2.z, anchorUniforms.pointee.modelMatrix.columns.3.z)
+            print(anchorUniforms.pointee.modelMatrix.columns.0.w, anchorUniforms.pointee.modelMatrix.columns.1.w, anchorUniforms.pointee.modelMatrix.columns.2.w, anchorUniforms.pointee.modelMatrix.columns.3.w)
+            print("--")*/
+            
         }
     }
     
@@ -436,7 +570,7 @@ class Renderer {
     func updateImagePlane(frame: ARFrame) {
         // Update the texture coordinates of our image plane to aspect fill the viewport
         let displayToCameraTransform = frame.displayTransform(for: .landscapeRight, viewportSize: viewportSize).inverted()
-
+        
         let vertexData = imagePlaneVertexBuffer.contents().assumingMemoryBound(to: Float.self)
         for index in 0...3 {
             let textureCoordIndex = 4 * index + 2
@@ -444,6 +578,8 @@ class Renderer {
             let transformedCoord = textureCoord.applying(displayToCameraTransform)
             vertexData[textureCoordIndex] = Float(transformedCoord.x)
             vertexData[textureCoordIndex + 1] = Float(transformedCoord.y)
+            
+            // print (transformedCoord.x, transformedCoord.y)
         }
     }
     
@@ -501,7 +637,98 @@ class Renderer {
         for submesh in cubeMesh.submeshes {
             renderEncoder.drawIndexedPrimitives(type: submesh.primitiveType, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: submesh.indexBuffer.offset, instanceCount: anchorInstanceCount)
         }
-        
+
         renderEncoder.popDebugGroup()
     }
+
+    func providePositionData(data: NSData) {
+        
+        positionsBuffer = device.makeBuffer(bytesNoCopy: UnsafeMutableRawPointer(mutating: data.bytes), length: data.length, options: [], deallocator: nil)
+        positionsBuffer.label = "Provided Positions"
+    }
+    
+    func drawStars(renderEncoder: MTLRenderCommandEncoder, numBodies: Int) {
+        guard numBodies > 0 else {
+            return
+        }
+        
+        // Push a debug group allowing us to identify render commands in the GPU Frame Capture tool
+        renderEncoder.pushDebugGroup("DrawStars")
+        
+        // Set render command encoder state
+        renderEncoder.setCullMode(.back)
+        renderEncoder.setRenderPipelineState(starPipelineState)
+        renderEncoder.setDepthStencilState(starDepthState)
+        
+        // Set any buffers fed into our render pipeline
+        renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: Int(starRenderBufferIndexPositions.rawValue))
+        renderEncoder.setVertexBuffer(_colors, offset: 0, index: Int(starRenderBufferIndexColors.rawValue))
+        renderEncoder.setVertexBuffer(dynamicUniformBuffers[currentBufferIndex], offset: 0, index: Int(starRenderBufferIndexUniforms.rawValue))
+        renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(starRenderBufferSharedUniforms.rawValue))
+        renderEncoder.setFragmentTexture(gaussianMap, index: Int(starTextureIndexColorMap.rawValue))
+//-        renderEncoder.setVertexBuffer(anchorUniformBuffer, offset: anchorUniformBufferOffset, index: Int(kBufferIndexInstanceUniforms.rawValue))
+//-        renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(kBufferIndexSharedUniforms.rawValue))
+//-        renderEncoder.setFragmentBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(kBufferIndexSharedUniforms.rawValue))
+ 
+        renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: numBodies, instanceCount: 1)
+        
+/*-
+        // Set mesh's vertex buffers
+        for bufferIndex in 0..<cubeMesh.vertexBuffers.count {
+            let vertexBuffer = cubeMesh.vertexBuffers[bufferIndex]
+            renderEncoder.setVertexBuffer(vertexBuffer.buffer, offset: vertexBuffer.offset, index:bufferIndex)
+        }
+        
+        // Draw each submesh of our mesh
+        for submesh in cubeMesh.submeshes {
+            renderEncoder.drawIndexedPrimitives(type: submesh.primitiveType, indexCount: submesh.indexCount, indexType: submesh.indexType, indexBuffer: submesh.indexBuffer.buffer, indexBufferOffset: submesh.indexBuffer.offset, instanceCount: starCount)
+        }
+-*/
+        renderEncoder.popDebugGroup()
+    }
+
+    
+    func initializeData() {
+        
+        let pscale : Float = 1.54
+        // let vscale : Float = 8.0 * pscale
+        let inner : Float = 2.5 * pscale
+        let outer : Float = 4.0 * pscale
+        let length : Float = outer - inner
+        let numBodies : Int = 4096
+        
+        positionsBuffer = device.makeBuffer(length: numBodies * MemoryLayout<vector_float4>.size, options: .storageModeShared)
+        positionsBuffer.label = "positions"
+        
+        let positions = positionsBuffer.contents().assumingMemoryBound(to: vector_float4.self)
+        
+        for i in 0..<numBodies {
+            var nrpos : vector_float3 = vector_float3(Float.random(in: 0..<1), Float.random(in: 0..<1), Float.random(in: 0..<1))
+            nrpos = nrpos / nrpos.squareRoot() // sqrt(nrpos.x*nrpos.x + nrpos.y*nrpos.y + nrpos.z*nrpos.z)
+            let rpos : vector_float3 = vector_float3(Float.random(in: 0..<1), Float.random(in: 0..<1), Float.random(in: 0..<1))
+            let position : vector_float3 = nrpos * (inner + (length * rpos))
+            
+            positions[i].x = Float.random(in: -1..<1)//position.x
+            positions[i].y = Float.random(in: -1..<1)//position.y
+            positions[i].z = Float.random(in: -1..<1)//position.z
+            positions[i].w = 1.0
+            
+            //print (position.x, position.y, position.z)
+            
+            //providePositionData(positions)
+        }
+    }
+
+    func randomMoveStars() {
+        let positions = positionsBuffer.contents().assumingMemoryBound(to: vector_float4.self)
+        let numBodies : Int = 4096
+        
+        for i in 0..<numBodies {
+            
+            positions[i].x += Float.random(in: -0.01..<0.01)
+            positions[i].y += Float.random(in: -0.01..<0.01)
+            positions[i].z += Float.random(in: -0.011..<0.01)
+        }
+    }
+    
 }

@@ -53,6 +53,7 @@
 		C4EBA66A2591F87C00C0F512 /* Starfield SimulationUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Starfield SimulationUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4EBA66E2591F87C00C0F512 /* Starfield_SimulationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Starfield_SimulationUITests.swift; sourceTree = "<group>"; };
 		C4EBA6702591F87C00C0F512 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C4EBA6852592330B00C0F512 /* Simulation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Simulation.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,6 +114,7 @@
 				C4EBA6562591F87C00C0F512 /* LaunchScreen.storyboard */,
 				C4EBA6592591F87C00C0F512 /* Info.plist */,
 				C4EBA65A2591F87C00C0F512 /* Starfield_Simulation-Bridging-Header.h */,
+				C4EBA6852592330B00C0F512 /* Simulation.h */,
 			);
 			path = "Starfield Simulation";
 			sourceTree = "<group>";
@@ -447,7 +449,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 52EA2ME785;
 				INFOPLIST_FILE = "Starfield Simulation/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 14.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -468,7 +470,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 52EA2ME785;
 				INFOPLIST_FILE = "Starfield Simulation/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 14.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
