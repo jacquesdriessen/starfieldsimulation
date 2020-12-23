@@ -171,8 +171,18 @@ fragment float4 anchorGeometryFragmentLighting(ColorInOut in [[stage_in]],
 }
 
 
+typedef struct
+{
+    float4 position [[position]];
+    float  pointSize [[point_size]];
+    half3  eyePosition;
+    half4  color;
+    half3  normal;
+} StarColorInOut;
+
+
 // Star geometry vertex function
-vertex ColorInOut starVertexShader(
+vertex StarColorInOut starVertexShader(
                                    uint                    vertexID  [[ vertex_id ]],
                                    const device float4*    positions  [[ buffer(starRenderBufferIndexPositions) ]],
                                    const device uchar4*    color     [[ buffer(starRenderBufferIndexColors)    ]],
@@ -185,7 +195,7 @@ vertex ColorInOut starVertexShader(
                                    ushort iid [[instance_id]])
 */
 {
-    ColorInOut out;
+    StarColorInOut out;
     
     // Make position a float4 to perform 4x4 matrix math on it
     float4 position = float4(positions[vertexID]);
@@ -202,18 +212,18 @@ vertex ColorInOut starVertexShader(
     // Rotate our normals to world coordinates
     float4 normal = /*modelMatrix */ float4(1.0f, 1.0f, 1.0f, 0.0f);
     out.normal = normalize(half3(normal.xyz));
-    
 
-
-    
-    out.pointSize = 25.0 / distance((modelViewMatrix * position).xyz, out.position.xyz);
+    out.color = half4(color[vertexID]) / 255.0h;
+    out.pointSize = 100.0 / distance((modelViewMatrix * position).xyz, out.position.xyz);
     
     return out;
 }
 
 // Star geometry fragment function
-fragment float4 starFragmentShader(ColorInOut in [[stage_in]],
-                                   constant SharedUniforms &uniforms [[ buffer(kBufferIndexSharedUniforms) ]]) {
+fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
+                                   //constant SharedUniforms &uniforms [[ buffer(kBufferIndexSharedUniforms) ]]
+                                   texture2d<half>  colorMap [[ texture(starTextureIndexColorMap)  ]],
+                                   float2           texcoord [[ point_coord ]]) {
    /*
     float3 normal = float3(in.normal);
     
@@ -262,6 +272,20 @@ fragment float4 starFragmentShader(ColorInOut in [[stage_in]],
     // colorMap for this fragment's alpha value
     return float4(color, in.color.w);
     */
-    return float4(1.0f, 1.0f, 1.0f, 1.0f);
+    //return half4(1.0f, 1.0f, 1.0f, 1.0f);
+    constexpr sampler linearSampler (mip_filter::none,
+                                     mag_filter::linear,
+                                     min_filter::linear);
+    
+    half4 c = colorMap.sample(linearSampler, texcoord);
+    
+    half4 fragColor = (0.6h + 0.4h * inColor.color) * c.x;
+    
+    half4 x = half4(0.1h, 0.0h, 0.0h, fragColor.w);
+    half4 y = half4(1.0h, 0.7h, 0.3h, fragColor.w);
+    half  a = fragColor.w;
+    
+    return fragColor * mix(x, y, a);
+    //return inColor.color;
 }
 

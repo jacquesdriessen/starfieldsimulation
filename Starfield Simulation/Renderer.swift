@@ -409,10 +409,16 @@ class Renderer {
             
             let colors = _colors.contents().assumingMemoryBound(to: vector_uchar4.self)
             
+            var color : vector_float3
+            
             for i in 0..<numBodies {
-                colors[i].x = UInt8(arc4random_uniform(256))
-                colors[i].y = UInt8(arc4random_uniform(256))
-                colors[i].z = UInt8(arc4random_uniform(256))
+                color = vector_float3.random(in: 0...1)
+                color = color / color.squareRoot()
+                colors[i].x = UInt8(255 * color.x)
+                colors[i].y = UInt8(255 * color.y)
+                colors[i].z = UInt8(255 * color.z)
+                colors[i].w = 255
+                
             }
         }
     }
@@ -468,7 +474,7 @@ class Renderer {
             return
         }
         
-        randomMoveStars()
+        //randomMoveStars()
         
         updateSharedUniforms(frame: currentFrame)
         updateAnchors(frame: currentFrame)
@@ -665,6 +671,7 @@ class Renderer {
         renderEncoder.setVertexBuffer(_colors, offset: 0, index: Int(starRenderBufferIndexColors.rawValue))
         renderEncoder.setVertexBuffer(dynamicUniformBuffers[currentBufferIndex], offset: 0, index: Int(starRenderBufferIndexUniforms.rawValue))
         renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(starRenderBufferSharedUniforms.rawValue))
+        //         renderEncoder.setFragmentBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(kBufferIndexSharedUniforms.rawValue))
         renderEncoder.setFragmentTexture(gaussianMap, index: Int(starTextureIndexColorMap.rawValue))
 //-        renderEncoder.setVertexBuffer(anchorUniformBuffer, offset: anchorUniformBufferOffset, index: Int(kBufferIndexInstanceUniforms.rawValue))
 //-        renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(kBufferIndexSharedUniforms.rawValue))
