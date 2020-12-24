@@ -112,7 +112,8 @@ class StarSimulation : NSObject {
         let inner : Float = 2.5 * pscale
         let outer : Float = 4.0 * pscale
         let length : Float = outer - inner
-        let flatten: Float = 0.25 * 0.25
+        let flatten: Float = 0.25
+        var total_mass: Float = 0
 
         _oldBufferIndex = 0
         _newBufferIndex = 1
@@ -120,15 +121,21 @@ class StarSimulation : NSObject {
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         
-        for i in 0..<_config.numBodies {
+        for i in 1..<_config.numBodies {
             let nrpos = generate_random_normalized_vector(min: -1.0, max: 1.0)
-            let rpos = generate_random_vector(min: 0.0, max: 1.0)
-            let position = nrpos * (inner + (length * rpos))
+            let rpos = generate_random_normalized_vector(min: 0.0, max: 1.0)
+            var position = nrpos * (inner + (length * rpos))
+        
+            
+           // position.z = -1 + position.z * flatten
             
             positions[Int(i)].x = position.x
             positions[Int(i)].y = position.y
-            positions[Int(i)].z = position.z * flatten - 1
-            positions[Int(i)].w = 1.0
+            positions[Int(i)].z = position.z
+            positions[Int(i)].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
+            //positions[Int(i)].w = 1 // star size, Mass is this "to the power of three" - model with all equal mass.
+            total_mass += positions[Int(i)].w + positions[Int(i)].w + positions[Int(i)].w
+
             
             // Temp, I know this provides valid data
            //positions[Int(i)].x = Float.random(in: -1..<1)//position.x
@@ -153,8 +160,20 @@ class StarSimulation : NSObject {
             // cross product
             velocity.x = position.y * axis.z - position.z * axis.y
             velocity.y = position.z * axis.x - position.x * axis.z
-            velocity.z = (position.x * axis.y - position.y * axis.x) * flatten * flatten
-            
+            if ((position.x*position.x + position.y*position.y) > (inner * inner * 0.1)) {
+                
+                let radialvelocitysq = velocity.x*velocity.x * velocity.y*velocity.y // radial velocity doesn't really depend too much on where in the galaxy once > inner
+                
+                velocity.x *= 0.3 * inner / radialvelocitysq.squareRoot()
+                velocity.y *= 0.3 * inner / radialvelocitysq.squareRoot()
+ 
+            }
+
+            velocity = velocity * (vector_float4(1,1,1,0) +  0.25 * vector_float4(generate_random_normalized_vector(min: -1.0, max: 1.0), 0))
+
+            velocity.z = (velocity.z + position.x * axis.y - position.y * axis.x) * flatten * flatten
+
+           
             // Temp, I know this provides valid data
            /* velocity.x = 0
             velocity.y = 0
@@ -163,8 +182,20 @@ class StarSimulation : NSObject {
             velocities[Int(i)] =  velocity * vscale
 
             
-            
+            positions[Int(i)].z *= flatten // flat galaxiy.
+            positions[Int(i)].z -= 1 // shift so we can see it.
         }
+        
+        // supermassive black hole in the middle.
+        positions[0].x = 0
+        positions[0].y = 0
+        positions[0].z = -1 // note the center of the galaxy is at z = -1
+        positions[0].w = pow ((1/400) * total_mass, 1/3) // black hole is approximately 1/400 of the total mass, radius is cube root.
+        velocities[0].x = 0
+        velocities[0].y = 0
+        velocities[0].z = 0
+
+    
     }
     
     func randomMoveStars() {

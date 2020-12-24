@@ -23,13 +23,12 @@ static float3 computeAcceleration(const float4 vsPosition,
     distSqr += softeningSqr;
     
     float invDist  = rsqrt(distSqr);
-    float invDist3 = invDist * invDist * invDist;
     
-    float s = vsPosition.w * invDist3;
+    float s = vsPosition.w * invDist;
     
-    return r * s;
+    return r * s * s * s;
     // temp - no acceleration
-    //return float3(0.0f, 0.0f, 0.0f);
+    // return float3(0.0f, 0.0f, 0.0f);
 }
 
 kernel void NBodySimulation(device float4*           newPosition       [[ buffer(starComputeBufferIndexNewPosition) ]],

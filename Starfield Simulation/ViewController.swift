@@ -101,7 +101,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     func beginSimulation() {
         _simulationTime = 0
-        _config = SimulationConfig(damping: 1, softeningSqr: 1, numBodies: 8192, clusterScale: 0.2, velocityScale: 80, renderScale: 1/10, renderBodies: 16 /* not implemented */, simInterval: 0.000160, simDuration: 100 /* dont think thtis was implemented */)
+        _config = SimulationConfig(damping: 1, softeningSqr: 0.9, numBodies: 5120, clusterScale: 0.05, velocityScale: 1000, renderScale: 4, renderBodies: 16 /* not implemented */, simInterval: 0.000160, simDuration: 100 /* dont think thtis was implemented */)
         
         
         // Configure the renderer to draw to the view
@@ -134,7 +134,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     @objc
     func handleTap(gestureRecognize: UITapGestureRecognizer) {
-        // Create anchor using the camera's current position
+       /* // Create anchor using the camera's current position
         if let currentFrame = session.currentFrame {
             
             // Create a transform with a translation of 0.2 meters in front of the camera
@@ -145,7 +145,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             // Add a new anchor to the session
             let anchor = ARAnchor(transform: transform)
             session.add(anchor: anchor)
-        }
+        }*/
     }
     
     // MARK: - MTKViewDelegate
