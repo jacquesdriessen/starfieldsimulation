@@ -127,7 +127,7 @@ class StarSimulation : NSObject {
             
             positions[Int(i)].x = position.x
             positions[Int(i)].y = position.y
-            positions[Int(i)].z = position.z * flatten
+            positions[Int(i)].z = position.z * flatten - 1
             positions[Int(i)].w = 1.0
             
             // Temp, I know this provides valid data

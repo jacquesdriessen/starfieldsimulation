@@ -62,7 +62,7 @@ fragment float4 capturedImageFragmentShader(ImageColorInOut in [[stage_in]],
     return ycbcrToRGBTransform * ycbcr;
 }
 
-
+/*
 typedef struct {
     float3 position [[attribute(kVertexAttributePosition)]];
     float2 texCoord [[attribute(kVertexAttributeTexcoord)]];
@@ -169,7 +169,7 @@ fragment float4 anchorGeometryFragmentLighting(ColorInOut in [[stage_in]],
     // colorMap for this fragment's alpha value
     return float4(color, in.color.w);
 }
-
+*/
 
 typedef struct
 {
@@ -210,7 +210,8 @@ vertex StarColorInOut starVertexShader(
     out.eyePosition = half3((modelViewMatrix * position).xyz);
     
     // Rotate our normals to world coordinates
-    float4 normal = /*modelMatrix */ float4(1.0f, 1.0f, 1.0f, 0.0f);
+    //float4 normal = /*modelMatrix */ float4(1.0f, 1.0f, 1.0f, 0.0f);
+    float4 normal = float4(position.x, position.y, position.z, 0.0f);
     out.normal = normalize(half3(normal.xyz));
 
     out.color = half4(color[vertexID]) / 255.0h;
@@ -280,12 +281,15 @@ fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
     half4 c = colorMap.sample(linearSampler, texcoord);
     
     half4 fragColor = (0.6h + 0.4h * inColor.color) * c.x;
-    
+   
     half4 x = half4(0.1h, 0.0h, 0.0h, fragColor.w);
     half4 y = half4(1.0h, 0.7h, 0.3h, fragColor.w);
     half  a = fragColor.w;
     
-    return fragColor * mix(x, y, a);
-    //return inColor.color;
+   // return fragColor * mix(x, y, a);
+ /*   if (fragColor.w < 0.7)
+        return half4(inColor.color.x, inColor.color.y, inColor.color.z, 1.h);
+    else*/
+        return fragColor * mix(x, y, a);
 }
 

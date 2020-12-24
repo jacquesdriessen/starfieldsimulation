@@ -23,21 +23,21 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     var _simulationTime: CFAbsoluteTime!
     
-    var _continuationTime: CFAbsoluteTime!
+ //   var _continuationTime: CFAbsoluteTime!
     
     var _computeDevice: MTLDevice!
     
     var _commandQueue: MTLCommandQueue!
 
-    var _configNum: Int = 0
+  //  var _configNum: Int = 0
     
     var _config: SimulationConfig!
     
     var _terminateAllSimulations = false
     
-    var _restartSimulation = false
+  //  var _restartSimulation = false
     
-    var _blinker: Timer!
+   // var _blinker: Timer!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -101,13 +101,13 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     func beginSimulation() {
         _simulationTime = 0
-        _config = SimulationConfig(damping: 1, softeningSqr: 1, numBodies: 8192, clusterScale: 0.3, velocityScale: 80, renderScale: 25, renderBodies: 16 /* not implemented */, simInterval: 0.000160, simDuration: 100 /* dont think thtis was implemented */)
+        _config = SimulationConfig(damping: 1, softeningSqr: 1, numBodies: 8192, clusterScale: 0.2, velocityScale: 80, renderScale: 1/10, renderBodies: 16 /* not implemented */, simInterval: 0.000160, simDuration: 100 /* dont think thtis was implemented */)
         
-        
-        // do we need to set render scale?
         
         // Configure the renderer to draw to the view
         renderer = Renderer(session: session, metalDevice: _view.device!, renderDestination: _view, numBodies: Int(_config.numBodies))
+
+        renderer.setRenderScale(renderScale: _config.renderScale)
         
         _computeDevice = _view.device!
         
