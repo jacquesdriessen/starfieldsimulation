@@ -14,7 +14,7 @@ extension MTKView : RenderDestinationProvider {
 }
 
 class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
-    
+    var _view: MTKView!
     var session: ARSession!
     var renderer: Renderer!
     var _simulation: StarSimulation!
@@ -47,24 +47,17 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         session.delegate = self
         
         // Set the view to use the default device
-        if let view = self.view as? MTKView {
-            view.device = MTLCreateSystemDefaultDevice()
-            view.backgroundColor = UIColor.clear
-            view.delegate = self
-            
-            guard view.device != nil else {
-                print("Metal is not supported on this device")
-                return
-            }
-            
-            // Configure the renderer to draw to the view
-            renderer = Renderer(session: session, metalDevice: view.device!, renderDestination: view)
-            
-            _computeDevice = view.device!
-            
-            renderer.drawRectResized(size: view.bounds.size)
-        }
+        _view = (self.view as! MTKView)
         
+        _view.device = MTLCreateSystemDefaultDevice()
+        _view.backgroundColor = UIColor.clear
+        _view.delegate = self
+            
+        guard _view.device != nil else {
+            print("Metal is not supported on this device")
+            return
+        }
+            
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleTap(gestureRecognize:)))
         view.addGestureRecognizer(tapGesture)
     }
@@ -110,15 +103,26 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         _simulationTime = 0
         _config = SimulationConfig(damping: 1, softeningSqr: 1, numBodies: 4096, clusterScale: 1.54, velocityScale: 8, renderScale: 25, renderBodies: 4096, simInterval: 0.0160, simDuration: 100)
         
-        _simulation = StarSimulation.init(computeDevice: _computeDevice, config: _config)
         
         // do we need to set render scale?
         
+        // Configure the renderer to draw to the view
+        renderer = Renderer(session: session, metalDevice: _view.device!, renderDestination: _view, numBodies: Int(_config.numBodies))
+        
+        _computeDevice = _view.device!
+        
+        renderer.drawRectResized(size: _view.bounds.size)
+        
         print("Starting Simulation")
+        
+        _simulation = StarSimulation.init(computeDevice: _computeDevice, config: _config)
+
         
         _commandQueue = renderer.device.makeCommandQueue()
     }
     
+    /*
+    // if on other device, shouldn't be needed
     func updateWithNewPositionDate(updateData: NSData, simulationTime: CFAbsoluteTime) {
         let serialQueue = DispatchQueue(label: "com.test.mySerialQueue")
         serialQueue.sync {
@@ -126,6 +130,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             _simulationTime = simulationTime
         }
     }
+    */
     
     @objc
     func handleTap(gestureRecognize: UITapGestureRecognizer) {
@@ -152,7 +157,22 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     // Called whenever the view needs to render
     func draw(in view: MTKView) {
-        renderer.update()
+        if _commandQueue != nil {
+            let commandBuffer = _commandQueue.makeCommandBuffer()!
+            
+            commandBuffer.pushDebugGroup("Controller Frame")
+            
+            let positionBuffer = _simulation.simulateFrameWithCommandBuffer(commandBuffer: commandBuffer)
+            
+            renderer.drawWithCommandBuffer(commandBuffer: commandBuffer, positionsBuffer: positionBuffer, numBodies: Int(_config.numBodies), inView: _view)
+            //renderer.update()
+            
+            
+            commandBuffer.commit()
+            commandBuffer.popDebugGroup()
+            
+            _simulationTime += Double(_config.simInterval)
+        }
     }
     
     // MARK: - ARSessionDelegate

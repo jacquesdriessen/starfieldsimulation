@@ -64,7 +64,7 @@ class Renderer {
     var starDepthState:    MTLDepthStencilState!
     var gaussianMap: MTLTexture!
     var _colors: MTLBuffer!
-    var positionsBuffer: MTLBuffer!
+    //var positionsBuffer: MTLBuffer!
     var dynamicUniformBuffers = [MTLBuffer]()
     var currentBufferIndex: Int = 0
     //var renderScale: Float
@@ -104,14 +104,14 @@ class Renderer {
     // Flag for viewport size changes
     var viewportSizeDidChange: Bool = false
        
-    init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider) {
+    init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider, numBodies: Int) {
         self.session = session
         self.device = device
         self.renderDestination = renderDestination
-        loadMetal()
+        loadMetal(numBodies: numBodies)
         loadAssets()
         generateGaussianMap()
-        initializeData()
+//        initializeData()
     }
     
     func generateGaussianMap() {
@@ -165,8 +165,25 @@ class Renderer {
         viewportSize = size
         viewportSizeDidChange = true
     }
+
+    func drawWithCommandBuffer(commandBuffer: MTLCommandBuffer, positionsBuffer: MTLBuffer, numBodies: Int, inView: MTKView)
+    {
+/*
+        // Wait to ensure only kMaxBuffersInFlight are getting processed by any stage in the Metal
+        //   pipeline (App, Metal, Drivers, GPU, etc)
+        let _ = inFlightSemaphore.wait(timeout: DispatchTime.distantFuture)
+
+        commandBuffer.pushDebugGroup("Render Commands")
+        */
+        setNumRenderBodies(numBodies: numBodies)
+        
+        
+        
+        update(numBodies: numBodies, positionsBuffer: positionsBuffer)
+        
+    }
     
-    func update() {
+    func update(numBodies: Int, positionsBuffer: MTLBuffer) {
         // Wait to ensure only kMaxBuffersInFlight are getting processed by any stage in the Metal
         //   pipeline (App, Metal, Drivers, GPU, etc)
         let _ = inFlightSemaphore.wait(timeout: DispatchTime.distantFuture)
@@ -200,7 +217,7 @@ class Renderer {
                 
                 drawCapturedImage(renderEncoder: renderEncoder)
                 drawAnchorGeometry(renderEncoder: renderEncoder)
-                drawStars(renderEncoder: renderEncoder, numBodies: 4096)
+                drawStars(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer: positionsBuffer)
                 
                 // We're done encoding commands
                 renderEncoder.endEncoding()
@@ -216,7 +233,7 @@ class Renderer {
     
     // MARK: - Private
     
-    func loadMetal() {
+    func loadMetal(numBodies: Int) {
         // Create and load our basic Metal state objects
         
         // Set the default formats needed to render
@@ -393,7 +410,7 @@ class Renderer {
         
         // Create the command queue
         
-        setNumRenderBodies(numBodies: 4096)
+        setNumRenderBodies(numBodies: numBodies)
         
         commandQueue = device.makeCommandQueue()
     }
@@ -646,14 +663,14 @@ class Renderer {
 
         renderEncoder.popDebugGroup()
     }
-
+/*
     func providePositionData(data: NSData) {
         
         positionsBuffer = device.makeBuffer(bytesNoCopy: UnsafeMutableRawPointer(mutating: data.bytes), length: data.length, options: [], deallocator: nil)
         positionsBuffer.label = "Provided Positions"
     }
-    
-    func drawStars(renderEncoder: MTLRenderCommandEncoder, numBodies: Int) {
+     */
+    func drawStars(renderEncoder: MTLRenderCommandEncoder, numBodies: Int, positionsBuffer: MTLBuffer) {
         guard numBodies > 0 else {
             return
         }
@@ -694,7 +711,7 @@ class Renderer {
         renderEncoder.popDebugGroup()
     }
 
-    
+/*
     func initializeData() {
         
         let pscale : Float = 1.54
@@ -737,5 +754,5 @@ class Renderer {
             positions[i].z += Float.random(in: -0.011..<0.01)
         }
     }
-    
+     */
 }

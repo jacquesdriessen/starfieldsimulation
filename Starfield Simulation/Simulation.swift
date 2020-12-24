@@ -128,6 +128,11 @@ class StarSimulation : NSObject {
             positions[Int(i)].x = position.z
             positions[Int(i)].w = 1.0
             
+            // Temo, I know this provides valid data
+            positions[Int(i)].x = Float.random(in: -1..<1)//position.x
+            positions[Int(i)].y = Float.random(in: -1..<1)//position.y
+            positions[Int(i)].z = Float.random(in: -1..<1)//position.z
+            
             var axis = vector_float3 (0.0, 0.0, 1.0)
          
             let scalar = nrpos.x * axis.x + nrpos.y * axis.y + nrpos.z * axis.z
@@ -150,6 +155,18 @@ class StarSimulation : NSObject {
                 
         }
     }
+    
+    func randomMoveStars() {
+        let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+//        let numBodies : Int = 4096
+        
+        for i in 0..<_config.numBodies {
+            
+            positions[Int(i)].x += Float.random(in: -0.01..<0.01)
+            positions[Int(i)].y += Float.random(in: -0.01..<0.01)
+            positions[Int(i)].z += Float.random(in: -0.01..<0.01)
+        }
+    }
 
     func fillUpdateBufferWithPositionBuffer(buffer: MTLBuffer, commandBuffer: MTLCommandBuffer) {
         
@@ -163,7 +180,7 @@ class StarSimulation : NSObject {
     }
     
     func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) -> MTLBuffer {
-        commandBuffer.pushDebugGroup("Simulation")
+        /*commandBuffer.pushDebugGroup("Simulation")
         
         let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
         computeEncoder.setComputePipelineState(_computePipeline)
@@ -184,10 +201,12 @@ class StarSimulation : NSObject {
         _newBufferIndex = tmpIndex
         
         commandBuffer.popDebugGroup()
-        
+    
         _simulationTime += CFAbsoluteTime(_config.simInterval)
-        
+
         return _positions[_newBufferIndex]
+*/
+        return _positions[_oldBufferIndex]
     }
 
     //func runAsyncWithUpdateHandler
