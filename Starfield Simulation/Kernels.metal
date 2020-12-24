@@ -25,7 +25,7 @@ static float3 computeAcceleration(const float4 vsPosition,
     float invDist  = rsqrt(distSqr);
     float invDist3 = invDist * invDist * invDist;
     
-    float s = vsPosition.w * invDist3 * (0.0001f, 0.0001f, 0.0001f);
+    float s = vsPosition.w * invDist3;
     
     return r * s;
     // temp - no acceleration

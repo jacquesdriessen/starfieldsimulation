@@ -112,6 +112,7 @@ class StarSimulation : NSObject {
         let inner : Float = 2.5 * pscale
         let outer : Float = 4.0 * pscale
         let length : Float = outer - inner
+        let flatten: Float = 0.25 * 0.25
 
         _oldBufferIndex = 0
         _newBufferIndex = 1
@@ -126,7 +127,7 @@ class StarSimulation : NSObject {
             
             positions[Int(i)].x = position.x
             positions[Int(i)].y = position.y
-            positions[Int(i)].z = position.z
+            positions[Int(i)].z = position.z * flatten
             positions[Int(i)].w = 1.0
             
             // Temp, I know this provides valid data
@@ -141,8 +142,10 @@ class StarSimulation : NSObject {
             if ((1 - scalar) < 0.000001) {
                 axis.x = nrpos.y
                 axis.y = nrpos.x
-                
-                axis = axis / axis.squareRoot()
+
+                let axis_sq = axis.x*axis.x + axis.y*axis.y + axis.z * axis.z
+
+                axis = axis / axis_sq.squareRoot()
             }
             
             var velocity = vector_float4(0,0,0,0)
@@ -150,8 +153,8 @@ class StarSimulation : NSObject {
             // cross product
             velocity.x = position.y * axis.z - position.z * axis.y
             velocity.y = position.z * axis.x - position.x * axis.z
-            velocity.z = position.x * axis.y - position.y * axis.x
-
+            velocity.z = (position.x * axis.y - position.y * axis.x) * flatten * flatten
+            
             // Temp, I know this provides valid data
            /* velocity.x = 0
             velocity.y = 0

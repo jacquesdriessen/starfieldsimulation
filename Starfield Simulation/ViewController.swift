@@ -101,7 +101,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     func beginSimulation() {
         _simulationTime = 0
-        _config = SimulationConfig(damping: 1, softeningSqr: 1, numBodies: 4096, clusterScale: 0.154, velocityScale: 0.8, renderScale: 25, renderBodies: 4096, simInterval: 0.0160, simDuration: 100)
+        _config = SimulationConfig(damping: 1, softeningSqr: 1, numBodies: 8192, clusterScale: 0.3, velocityScale: 80, renderScale: 25, renderBodies: 16 /* not implemented */, simInterval: 0.000160, simDuration: 100 /* dont think thtis was implemented */)
         
         
         // do we need to set render scale?
