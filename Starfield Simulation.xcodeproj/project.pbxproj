@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C4C0DBB02593E0ED006B8CC4 /* Kernels.metal in Sources */ = {isa = PBXBuildFile; fileRef = C4C0DBAF2593E0ED006B8CC4 /* Kernels.metal */; };
+		C4C0DBB92593E2D1006B8CC4 /* Simulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C0DBB82593E2D1006B8CC4 /* Simulation.swift */; };
 		C4EBA6492591F87A00C0F512 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EBA6482591F87A00C0F512 /* AppDelegate.swift */; };
 		C4EBA64B2591F87A00C0F512 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = C4EBA64A2591F87A00C0F512 /* Shaders.metal */; };
 		C4EBA64E2591F87A00C0F512 /* Renderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EBA64D2591F87A00C0F512 /* Renderer.swift */; };
@@ -36,6 +38,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C4C0DBAF2593E0ED006B8CC4 /* Kernels.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Kernels.metal; sourceTree = "<group>"; };
+		C4C0DBB42593E13F006B8CC4 /* KernelTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KernelTypes.h; sourceTree = "<group>"; };
+		C4C0DBB82593E2D1006B8CC4 /* Simulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Simulation.swift; sourceTree = "<group>"; };
 		C4EBA6452591F87A00C0F512 /* Starfield Simulation.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Starfield Simulation.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C4EBA6482591F87A00C0F512 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		C4EBA64A2591F87A00C0F512 /* Shaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Shaders.metal; sourceTree = "<group>"; };
@@ -104,7 +109,9 @@
 		C4EBA6472591F87A00C0F512 /* Starfield Simulation */ = {
 			isa = PBXGroup;
 			children = (
+				C4C0DBB82593E2D1006B8CC4 /* Simulation.swift */,
 				C4EBA6482591F87A00C0F512 /* AppDelegate.swift */,
+				C4C0DBAF2593E0ED006B8CC4 /* Kernels.metal */,
 				C4EBA64A2591F87A00C0F512 /* Shaders.metal */,
 				C4EBA64C2591F87A00C0F512 /* ShaderTypes.h */,
 				C4EBA64D2591F87A00C0F512 /* Renderer.swift */,
@@ -115,6 +122,7 @@
 				C4EBA6592591F87C00C0F512 /* Info.plist */,
 				C4EBA65A2591F87C00C0F512 /* Starfield_Simulation-Bridging-Header.h */,
 				C4EBA6852592330B00C0F512 /* Simulation.h */,
+				C4C0DBB42593E13F006B8CC4 /* KernelTypes.h */,
 			);
 			path = "Starfield Simulation";
 			sourceTree = "<group>";
@@ -270,6 +278,8 @@
 				C4EBA64B2591F87A00C0F512 /* Shaders.metal in Sources */,
 				C4EBA64E2591F87A00C0F512 /* Renderer.swift in Sources */,
 				C4EBA6502591F87A00C0F512 /* ViewController.swift in Sources */,
+				C4C0DBB02593E0ED006B8CC4 /* Kernels.metal in Sources */,
+				C4C0DBB92593E2D1006B8CC4 /* Simulation.swift in Sources */,
 				C4EBA6492591F87A00C0F512 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -11,3 +11,4 @@
 
 #import "ShaderTypes.h"
 #import "Simulation.h"
+#import "KernelTypes.h"

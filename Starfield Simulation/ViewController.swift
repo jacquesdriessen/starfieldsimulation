@@ -17,6 +17,27 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     var session: ARSession!
     var renderer: Renderer!
+    var _simulation: StarSimulation!
+    
+    //var _metalDeviceObserver = NSObject!
+    
+    var _simulationTime: CFAbsoluteTime!
+    
+    var _continuationTime: CFAbsoluteTime!
+    
+    var _computeDevice: MTLDevice!
+    
+    var _commandQueue: MTLCommandQueue!
+
+    var _configNum: Int = 0
+    
+    var _config: SimulationConfig!
+    
+    var _terminateAllSimulations = false
+    
+    var _restartSimulation = false
+    
+    var _blinker: Timer!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -39,12 +60,34 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             // Configure the renderer to draw to the view
             renderer = Renderer(session: session, metalDevice: view.device!, renderDestination: view)
             
+            _computeDevice = view.device!
+            
             renderer.drawRectResized(size: view.bounds.size)
         }
         
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleTap(gestureRecognize:)))
         view.addGestureRecognizer(tapGesture)
     }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        beginSimulation()
+    }
+    
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+
+        let serialQueue = DispatchQueue(label: "com.test.mySerialQueue")
+        serialQueue.sync {
+            _simulation.halt = true
+            _terminateAllSimulations = true
+        }
+        
+        // remove device observer
+        
+
+    }
+    
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -61,6 +104,27 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         
         // Pause the view's session
         session.pause()
+    }
+    
+    func beginSimulation() {
+        _simulationTime = 0
+        _config = SimulationConfig(damping: 1, softeningSqr: 1, numBodies: 4096, clusterScale: 1.54, velocityScale: 8, renderScale: 25, renderBodies: 4096, simInterval: 0.0160, simDuration: 100)
+        
+        _simulation = StarSimulation.init(computeDevice: _computeDevice, config: _config)
+        
+        // do we need to set render scale?
+        
+        print("Starting Simulation")
+        
+        _commandQueue = renderer.device.makeCommandQueue()
+    }
+    
+    func updateWithNewPositionDate(updateData: NSData, simulationTime: CFAbsoluteTime) {
+        let serialQueue = DispatchQueue(label: "com.test.mySerialQueue")
+        serialQueue.sync {
+            renderer.providePositionData(data: updateData)
+            _simulationTime = simulationTime
+        }
     }
     
     @objc
