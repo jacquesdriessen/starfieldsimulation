@@ -18,8 +18,9 @@ func generate_random_vector(min: Float, max: Float) -> vector_float3 {
 
 func generate_random_normalized_vector(min: Float, max: Float) -> vector_float3 {
     let rand = vector_float3.random(in: min...max)
-    
-    return rand / rand.squareRoot()
+    let rand_sq = rand.x * rand.x + rand.y * rand.y + rand.z*rand.z
+    let rand_normal = rand / rand_sq.squareRoot()
+    return rand_normal
 }
 
 class StarSimulation : NSObject {
@@ -74,7 +75,7 @@ class StarSimulation : NSObject {
         }
        
         _threadsperThreadgroup = MTLSizeMake(_computePipeline.threadExecutionWidth, 1, 1)
-        _dispatchExecutionSize = MTLSizeMake(Int(_config.numBodies), 1, 1)
+        _dispatchExecutionSize = MTLSizeMake((Int(_config.numBodies) + _computePipeline.threadExecutionWidth - 1) / _computePipeline.threadExecutionWidth, 1, 1)
         _threadgroupMemoryLength = _computePipeline.threadExecutionWidth * MemoryLayout<vector_float4>.size
         
         let bufferSize = MemoryLayout<vector_float3>.size * Int(_config.numBodies)
@@ -124,14 +125,14 @@ class StarSimulation : NSObject {
             let position = nrpos * (inner + (length * rpos))
             
             positions[Int(i)].x = position.x
-            positions[Int(i)].x = position.y
-            positions[Int(i)].x = position.z
+            positions[Int(i)].y = position.y
+            positions[Int(i)].z = position.z
             positions[Int(i)].w = 1.0
             
-            // Temo, I know this provides valid data
-            positions[Int(i)].x = Float.random(in: -1..<1)//position.x
-            positions[Int(i)].y = Float.random(in: -1..<1)//position.y
-            positions[Int(i)].z = Float.random(in: -1..<1)//position.z
+            // Temp, I know this provides valid data
+           //positions[Int(i)].x = Float.random(in: -1..<1)//position.x
+           //positions[Int(i)].y = Float.random(in: -1..<1)//position.y
+           //positions[Int(i)].z = Float.random(in: -1..<1)//position.z
             
             var axis = vector_float3 (0.0, 0.0, 1.0)
          
@@ -151,8 +152,15 @@ class StarSimulation : NSObject {
             velocity.y = position.z * axis.x - position.x * axis.z
             velocity.z = position.x * axis.y - position.y * axis.x
 
+            // Temp, I know this provides valid data
+           /* velocity.x = 0
+            velocity.y = 0
+            velocity.z = 0 */
+                        
             velocities[Int(i)] =  velocity * vscale
-                
+
+            
+            
         }
     }
     
@@ -180,7 +188,7 @@ class StarSimulation : NSObject {
     }
     
     func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) -> MTLBuffer {
-        /*commandBuffer.pushDebugGroup("Simulation")
+        commandBuffer.pushDebugGroup("Simulation")
         
         let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
         computeEncoder.setComputePipelineState(_computePipeline)
@@ -189,10 +197,13 @@ class StarSimulation : NSObject {
         computeEncoder.setBuffer(_velocities[_newBufferIndex], offset: 0, index: Int(starComputeBufferIndexNewVelocity.rawValue))
         computeEncoder.setBuffer(_positions[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldPosition.rawValue))
         computeEncoder.setBuffer(_velocities[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldVelocity.rawValue))
+        computeEncoder.setBuffer(_simulationParams, offset: 0, index: Int(starComputeBufferIndexParams.rawValue))
 
         computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0)
         
-        computeEncoder.dispatchThreads(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
+        //computeEncoder.dispatchThreads(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
+        computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
+        computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0)
         
         computeEncoder.endEncoding()
         
@@ -205,8 +216,8 @@ class StarSimulation : NSObject {
         _simulationTime += CFAbsoluteTime(_config.simInterval)
 
         return _positions[_newBufferIndex]
-*/
-        return _positions[_oldBufferIndex]
+
+        // testing only (no compute) return _positions[_oldBufferIndex]
     }
 
     //func runAsyncWithUpdateHandler

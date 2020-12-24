@@ -381,6 +381,10 @@ class Renderer {
         let starVertexFunction = defaultLibrary.makeFunction(name: "starVertexShader")!
         let starFragmentFunction = defaultLibrary.makeFunction(name: "starFragmentShader")!
     
+        renderDestination.depthStencilPixelFormat = MTLPixelFormat.depth32Float_stencil8
+        renderDestination.colorPixelFormat = MTLPixelFormat.bgra8Unorm
+        renderDestination.sampleCount = 1
+        
         let starPipelineDescriptor = MTLRenderPipelineDescriptor()
         starPipelineDescriptor.label = "StarRenderPipeline"
         starPipelineDescriptor.sampleCount = renderDestination.sampleCount
@@ -429,8 +433,8 @@ class Renderer {
             var color : vector_float3
             
             for i in 0..<numBodies {
-                color = vector_float3.random(in: 0...1)
-                color = color / color.squareRoot()
+                color = generate_random_vector(min: 0, max: 1)
+
                 colors[i].x = UInt8(255 * color.x)
                 colors[i].y = UInt8(255 * color.y)
                 colors[i].z = UInt8(255 * color.z)
