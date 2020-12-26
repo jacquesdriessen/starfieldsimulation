@@ -133,7 +133,7 @@ class StarSimulation : NSObject {
     }
     
     func makegalaxy(first: Int, last: Int, positionOffset: vector_float3, velocityOffset: vector_float3, rotation: vector_float3, flatten: Float, prescale : Float = 1, vrescale: Float = 1) {
-        let pscale : Float = _config.clusterScale * prescale
+        let pscale : Float = _config.clusterScale * prescale * 0.7 // might need to move this to the main "create a galaxy thing"
         let vscale : Float = _config.velocityScale * pscale * vrescale
         let inner : Float = 2.5 * pscale
         let outer : Float = 4.0 * pscale
@@ -172,7 +172,9 @@ class StarSimulation : NSObject {
             } else {
 
                 let nrpos = generate_random_normalized_vector()
-                let position = nrpos * abs(generate_random_vector(min:inner, max: outer))
+                //let position = nrpos * abs(generate_random_vector(min:inner, max: outer))
+                let rpos = abs(generate_random_normalized_vector())
+                let position = nrpos * (inner + ((outer-inner) * rpos));
                 
                 positions[i].x = position.x
                 positions[i].y = position.y
