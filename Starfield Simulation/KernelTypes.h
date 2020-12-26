@@ -22,8 +22,10 @@ typedef struct StarSimParams
     float  timestep;
     float  damping;
     float  softeningSqr;
-    
     unsigned int numBodies;
+    unsigned int split;
+    unsigned int block_begin;
+    unsigned int block_end;
 } StarSimParams;
 
 

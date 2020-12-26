@@ -101,7 +101,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     func beginSimulation() {
         _simulationTime = 0
-        _config = SimulationConfig(damping: 1, softeningSqr: 0.9, numBodies: 5120, clusterScale: 0.05, velocityScale: 1000, renderScale: 4, renderBodies: 16 /* not implemented */, simInterval: 0.000160, simDuration: 100 /* dont think thtis was implemented */)
+        _config = SimulationConfig(damping: 1, softeningSqr: 0.01, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000080, simDuration: 100 /* dont think thtis was implemented */)
         
         
         // Configure the renderer to draw to the view
@@ -146,6 +146,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             let anchor = ARAnchor(transform: transform)
             session.add(anchor: anchor)
         }*/
+        _simulation.initalizeData()
     }
     
     // MARK: - MTKViewDelegate
@@ -157,16 +158,16 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     // Called whenever the view needs to render
     func draw(in view: MTKView) {
+        if _simulation != nil {
+            renderer.draw(positionsBuffer1: _simulation.getStablePositionBuffer1(), positionsBuffer2: _simulation.getStablePositionBuffer2(), interpolation: _simulation.getInterpolation(), numBodies: Int(_config.numBodies), inView: _view)
+        }
+        
         if _commandQueue != nil {
             let commandBuffer = _commandQueue.makeCommandBuffer()!
             
             commandBuffer.pushDebugGroup("Controller Frame")
             
-            let positionBuffer = _simulation.simulateFrameWithCommandBuffer(commandBuffer: commandBuffer)
-            
-            renderer.drawWithCommandBuffer(commandBuffer: commandBuffer, positionsBuffer: positionBuffer, numBodies: Int(_config.numBodies), inView: _view)
-            //renderer.update()
-            
+            _simulation.simulateFrameWithCommandBuffer(commandBuffer: commandBuffer)
             
             commandBuffer.commit()
             commandBuffer.popDebugGroup()

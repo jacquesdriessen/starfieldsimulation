@@ -61,10 +61,12 @@ typedef struct {
 
 typedef enum StarRenderBufferIndex
 {
-    starRenderBufferIndexPositions = 0,
-    starRenderBufferIndexColors   = 1,
-    starRenderBufferIndexUniforms = 2,
-    starRenderBufferSharedUniforms = 3
+    starRenderBufferIndexPositions1 = 0,
+    starRenderBufferIndexPositions2 = 1,
+    starRenderBufferIndexInterpolation = 2,
+    starRenderBufferIndexColors   = 3,
+    starRenderBufferIndexUniforms = 4,
+    starRenderBufferIndexSharedUniforms = 5
 } StarRenderBufferIndex;
 
 typedef enum StarTextureIndex

@@ -184,11 +184,13 @@ typedef struct
 
 // Star geometry vertex function
 vertex StarColorInOut starVertexShader(
-                                   uint                    vertexID  [[ vertex_id ]],
-                                   const device float4*    positions  [[ buffer(starRenderBufferIndexPositions) ]],
-                                   const device uchar4*    color     [[ buffer(starRenderBufferIndexColors)    ]],
-                                   constant StarUniforms & uniforms  [[ buffer(starRenderBufferIndexUniforms)  ]],
-                                   constant SharedUniforms &sharedUniforms [[ buffer(kBufferIndexSharedUniforms) ]])
+                                   uint                         vertexID  [[ vertex_id ]],
+                                   const device float4*         positions1  [[ buffer(starRenderBufferIndexPositions1) ]],
+                                   const device float4*         positions2  [[ buffer(starRenderBufferIndexPositions2) ]],
+                                   const device float &         interpolation  [[ buffer(starRenderBufferIndexInterpolation) ]],
+                                   const device uchar4*         color     [[ buffer(starRenderBufferIndexColors)    ]],
+                                   constant StarUniforms &      uniforms  [[ buffer(starRenderBufferIndexUniforms)  ]],
+                                   constant SharedUniforms &    sharedUniforms [[ buffer(starRenderBufferIndexSharedUniforms) ]])
 /*
                                    Vertex in [[stage_in]],
                                    constant InstanceUniforms *instanceUniforms [[ buffer(kBufferIndexInstanceUniforms) ]],
@@ -199,7 +201,7 @@ vertex StarColorInOut starVertexShader(
     StarColorInOut out;
     
     // Make position a float4 to perform 4x4 matrix math on it
-    float4 position = float4(positions[vertexID].xyz, 1.0); // as positions.w also holds the radius - need to set .w explicitly to 1 as otherwise it will be used in multiplication.
+    float4 position = (1.0-interpolation)*float4(positions1[vertexID].xyz, 1.0) + interpolation*float4(positions2[vertexID].xyz, 1.0); // (1) interpolates as we can do less computation than we need to do rendering (2) as positions.w also holds the radius - need to set .w explicitly to 1 as otherwise it will be used in multiplication.
     
   //  float4x4 modelMatrix = instanceUniforms[iid].modelMatrix;
     float4x4 modelViewMatrix = sharedUniforms.viewMatrix; // * modelMatrix;
@@ -217,7 +219,7 @@ vertex StarColorInOut starVertexShader(
 */
     out.color = half4(color[vertexID]) / 255.0h;
 
-    out.radius = positions[vertexID].w; //positions[vertexID].w holds radius of the star
+    out.radius = positions1[vertexID].w; //positions[vertexID].w holds radius of the star
     
     out.pointSize = out.radius * 100.0 / distance((modelViewMatrix * position).xyz, out.position.xyz);
     

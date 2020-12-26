@@ -64,6 +64,7 @@ class Renderer {
     var starDepthState:    MTLDepthStencilState!
     var gaussianMap: MTLTexture!
     var _colors: MTLBuffer!
+    var _interpolation: MTLBuffer!
     //var positionsBuffer: MTLBuffer!
     var dynamicUniformBuffers = [MTLBuffer]()
     var currentBufferIndex: Int = 0
@@ -171,7 +172,7 @@ class Renderer {
         viewportSizeDidChange = true
     }
 
-    func drawWithCommandBuffer(commandBuffer: MTLCommandBuffer, positionsBuffer: MTLBuffer, numBodies: Int, inView: MTKView)
+    func draw(positionsBuffer1: MTLBuffer, positionsBuffer2: MTLBuffer, interpolation: Float, numBodies: Int, inView: MTKView)
     {
 /*
         // Wait to ensure only kMaxBuffersInFlight are getting processed by any stage in the Metal
@@ -183,12 +184,12 @@ class Renderer {
         setNumRenderBodies(numBodies: numBodies)
         
         
-        
+        /*
         update(numBodies: numBodies, positionsBuffer: positionsBuffer)
         
     }
     
-    func update(numBodies: Int, positionsBuffer: MTLBuffer) {
+    func update(numBodies: Int, positionsBuffer: MTLBuffer) { */
         // Wait to ensure only kMaxBuffersInFlight are getting processed by any stage in the Metal
         //   pipeline (App, Metal, Drivers, GPU, etc)
         let _ = inFlightSemaphore.wait(timeout: DispatchTime.distantFuture)
@@ -222,7 +223,8 @@ class Renderer {
                 
                 drawCapturedImage(renderEncoder: renderEncoder)
   /*              drawAnchorGeometry(renderEncoder: renderEncoder)
-   */             drawStars(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer: positionsBuffer)
+                 */
+                drawStars(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer1: positionsBuffer1, positionsBuffer2: positionsBuffer2, interpolation: interpolation)
                 
                 // We're done encoding commands
                 renderEncoder.endEncoding()
@@ -420,6 +422,8 @@ class Renderer {
         setNumRenderBodies(numBodies: numBodies)
         
         commandQueue = device.makeCommandQueue()
+        
+        _interpolation = device.makeBuffer(length: MemoryLayout<Float>.size, options: .storageModeShared)
     }
 
     func setNumRenderBodies(numBodies: Int) {
@@ -438,9 +442,9 @@ class Renderer {
             for i in 0..<numBodies {
                 color = generate_random_vector(min: 0, max: 1)
 
-                colors[i].x = UInt8(255 * color.x)
-                colors[i].y = UInt8(255 * color.y)
-                colors[i].z = UInt8(255 * color.z)
+                colors[i].x = UInt8(255 * abs(color.x))
+                colors[i].y = UInt8(255 * abs(color.y))
+                colors[i].z = UInt8(255 * abs(color.z))
                 colors[i].w = 255
                 
             }
@@ -684,7 +688,7 @@ class Renderer {
         positionsBuffer.label = "Provided Positions"
     }
      */
-    func drawStars(renderEncoder: MTLRenderCommandEncoder, numBodies: Int, positionsBuffer: MTLBuffer) {
+    func drawStars(renderEncoder: MTLRenderCommandEncoder, numBodies: Int, positionsBuffer1: MTLBuffer, positionsBuffer2: MTLBuffer, interpolation: Float) {
         guard numBodies > 0 else {
             return
         }
@@ -697,12 +701,15 @@ class Renderer {
         renderEncoder.setRenderPipelineState(starPipelineState)
         renderEncoder.setDepthStencilState(starDepthState)
         
+        _interpolation.contents().assumingMemoryBound(to: Float.self).pointee = interpolation
         
         // Set any buffers fed into our render pipeline
-        renderEncoder.setVertexBuffer(positionsBuffer, offset: 0, index: Int(starRenderBufferIndexPositions.rawValue))
+        renderEncoder.setVertexBuffer(positionsBuffer1, offset: 0, index: Int(starRenderBufferIndexPositions1.rawValue))
+        renderEncoder.setVertexBuffer(positionsBuffer2, offset: 0, index: Int(starRenderBufferIndexPositions2.rawValue))
+        renderEncoder.setVertexBuffer(_interpolation, offset: 0, index: Int(starRenderBufferIndexInterpolation.rawValue))
         renderEncoder.setVertexBuffer(_colors, offset: 0, index: Int(starRenderBufferIndexColors.rawValue))
-        renderEncoder.setVertexBuffer(dynamicUniformBuffers[currentBufferIndex], offset: 0, index: Int(starRenderBufferIndexUniforms.rawValue))
-        renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(starRenderBufferSharedUniforms.rawValue))
+         renderEncoder.setVertexBuffer(dynamicUniformBuffers[currentBufferIndex], offset: 0, index: Int(starRenderBufferIndexUniforms.rawValue))
+        renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(starRenderBufferIndexSharedUniforms.rawValue))
         //         renderEncoder.setFragmentBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(kBufferIndexSharedUniforms.rawValue))
         renderEncoder.setFragmentTexture(gaussianMap, index: Int(starTextureIndexColorMap.rawValue))
 //-        renderEncoder.setVertexBuffer(anchorUniformBuffer, offset: anchorUniformBufferOffset, index: Int(kBufferIndexInstanceUniforms.rawValue))
