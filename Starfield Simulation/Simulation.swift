@@ -144,67 +144,81 @@ class StarSimulation : NSObject {
         
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let positions2 = _positions[_oldestBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let velocities2 = _velocities[_oldestBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let positions3 = _positions[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let velocities3 = _velocities[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
 
-        for i in (first+1)...last {
-            let nrpos = generate_random_normalized_vector()
-            let position = nrpos * abs(generate_random_vector(min:inner, max: outer))
+
+        for i in first...last {
             
-            positions[i].x = position.x
-            positions[i].y = position.y
-            positions[i].z = position.z
-            positions[i].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
-            //positions[Int(i)].w = 1 // star size, Mass is this "to the power of three" - model with all equal mass.
-            total_mass += positions[Int(i)].w + positions[Int(i)].w + positions[Int(i)].w
-            
-            var axis = vector_float3 (0.0, 0.0, 1.0)
-            
-            let scalar = nrpos.x * axis.x + nrpos.y * axis.y + nrpos.z * axis.z
-            
-            if ((1 - scalar) < 0.000001) {
-                axis.x = nrpos.y
-                axis.y = nrpos.x
+            if i == last {
+                // supermassive black hole in the middle.
+                positions[i] = vector_float4(positionOffset, 0)
+                positions[i].w = pow ((1/400) * total_mass, 1/3) // black hole is approximately 1/400 of the total mass, radius is cube root.
+                velocities[i] = vector_float4(velocityOffset, 0) * vscale
+
+            } else {
+
+                let nrpos = generate_random_normalized_vector()
+                let position = nrpos * abs(generate_random_vector(min:inner, max: outer))
                 
-                let axis_sq = axis.x*axis.x + axis.y*axis.y + axis.z * axis.z
+                positions[i].x = position.x
+                positions[i].y = position.y
+                positions[i].z = position.z
+                positions[i].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
+                //positions[Int(i)].w = 1 // star size, Mass is this "to the power of three" - model with all equal mass.
+                total_mass += positions[Int(i)].w + positions[Int(i)].w + positions[Int(i)].w
                 
-                axis = axis / axis_sq.squareRoot()
+                var axis = vector_float3 (0.0, 0.0, 1.0)
+                
+                let scalar = nrpos.x * axis.x + nrpos.y * axis.y + nrpos.z * axis.z
+                
+                if ((1 - scalar) < 0.000001) {
+                    axis.x = nrpos.y
+                    axis.y = nrpos.x
+                    
+                    let axis_sq = axis.x*axis.x + axis.y*axis.y + axis.z * axis.z
+                    
+                    axis = axis / axis_sq.squareRoot()
+                }
+                
+                var velocity = vector_float4(0,0,0,0)
+                
+                // cross product
+                velocity.x = position.y * axis.z - position.z * axis.y
+                velocity.y = position.z * axis.x - position.x * axis.z
+     
+                /*     if ((position.x*position.x + position.y*position.y) > (inner * inner * 0.1)) {
+                 
+                 let radialvelocitysq = velocity.x*velocity.x * velocity.y*velocity.y // radial velocity doesn't really depend too much on where in the galaxy once > inner
+                 
+                 velocity.x *= 0.3 * inner / radialvelocitysq.squareRoot()
+                 velocity.y *= 0.3 * inner / radialvelocitysq.squareRoot()
+                 
+                 } */
+                
+                velocity = velocity * (vector_float4(1,1,1,0) +  0.05
+                                        * vector_float4(generate_random_normalized_vector(), 0))
+                
+                velocity.z = flatten*(velocity.z + position.x * axis.y - position.y * axis.x)
+                
+
+                velocities[i] = velocity * vscale
+                velocities[i] = rotation_matrix * velocities[i]
+                velocities[i] = velocities[i] + (vector_float4(velocityOffset, 0) * vscale)
+                    
+                
+                positions[i].z *= flatten // flatten galaxiy.
+                positions[i] = rotation_matrix * positions[i]
+                positions[i] = positions[i] + vector_float4(positionOffset, 0)
             }
-            
-            var velocity = vector_float4(0,0,0,0)
-            
-            // cross product
-            velocity.x = position.y * axis.z - position.z * axis.y
-            velocity.y = position.z * axis.x - position.x * axis.z
- 
-            /*     if ((position.x*position.x + position.y*position.y) > (inner * inner * 0.1)) {
-             
-             let radialvelocitysq = velocity.x*velocity.x * velocity.y*velocity.y // radial velocity doesn't really depend too much on where in the galaxy once > inner
-             
-             velocity.x *= 0.3 * inner / radialvelocitysq.squareRoot()
-             velocity.y *= 0.3 * inner / radialvelocitysq.squareRoot()
-             
-             } */
-            
-            velocity = velocity * (vector_float4(1,1,1,0) +  0.05
-                                    * vector_float4(generate_random_normalized_vector(), 0))
-            
-            velocity.z = flatten*(velocity.z + position.x * axis.y - position.y * axis.x)
-            
 
-            velocities[i] = velocity * vscale
-            velocities[i] = rotation_matrix * velocities[i]
-            velocities[i] = velocities[i] + (vector_float4(velocityOffset, 0) * vscale)
-
-            
-            positions[i].z *= flatten // flatten galaxiy.
-            positions[i] = rotation_matrix * positions[i]
-            positions[i] = positions[i] + vector_float4(positionOffset, 0)
-
+            positions2[i] = positions[i] // in case we are "on halt", we still want it to display
+            positions3[i] = positions[i]
+            velocities2[i] = velocities[i]
+            velocities3[i] = velocities[i]
         }
-        
-        // supermassive black hole in the middle.
-        positions[first] = vector_float4(positionOffset, 0)
-        positions[first].w = pow ((1/400) * total_mass, 1/3) // black hole is approximately 1/400 of the total mass, radius is cube root.
-        velocities[first] = vector_float4(velocityOffset, 0) * vscale
     }
     
     
@@ -303,47 +317,49 @@ class StarSimulation : NSObject {
 
     
     func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) {
-        commandBuffer.pushDebugGroup("Simulation")
-        
-        let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
-        computeEncoder.setComputePipelineState(_computePipeline)
-        
-        computeEncoder.setBuffer(_positions[_newBufferIndex], offset: 0, index: Int(starComputeBufferIndexNewPosition.rawValue))
-        computeEncoder.setBuffer(_velocities[_newBufferIndex], offset: 0, index: Int(starComputeBufferIndexNewVelocity.rawValue))
-        computeEncoder.setBuffer(_positions[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldPosition.rawValue))
-        computeEncoder.setBuffer(_velocities[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldVelocity.rawValue))
-        computeEncoder.setBuffer(_simulationParams, offset: 0, index: Int(starComputeBufferIndexParams.rawValue))
-
-        computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // duplicate
-        computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
-        
-        computeEncoder.endEncoding()
-        commandBuffer.popDebugGroup()
-
-        if (_simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end >= _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.numBodies) { // commit frame
-
-            let tmpIndex = _oldestBufferIndex
-            _oldestBufferIndex = _oldBufferIndex
-            _oldBufferIndex = _newBufferIndex
-            _newBufferIndex = tmpIndex
+        if (!halt) {
+            commandBuffer.pushDebugGroup("Simulation")
             
-            _simulationTime += CFAbsoluteTime(_config.simInterval)
-
-            _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin = 0
-            _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end = min(_config.numBodies, block_size)
+            let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
+            computeEncoder.setComputePipelineState(_computePipeline)
             
-            if (nextModel) {
-                nextModel = false
-                initalizeData()
+            computeEncoder.setBuffer(_positions[_newBufferIndex], offset: 0, index: Int(starComputeBufferIndexNewPosition.rawValue))
+            computeEncoder.setBuffer(_velocities[_newBufferIndex], offset: 0, index: Int(starComputeBufferIndexNewVelocity.rawValue))
+            computeEncoder.setBuffer(_positions[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldPosition.rawValue))
+            computeEncoder.setBuffer(_velocities[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldVelocity.rawValue))
+            computeEncoder.setBuffer(_simulationParams, offset: 0, index: Int(starComputeBufferIndexParams.rawValue))
+
+            computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // duplicate
+            computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
+            
+            computeEncoder.endEncoding()
+            commandBuffer.popDebugGroup()
+
+            if (_simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end >= _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.numBodies) { // commit frame
+
+                let tmpIndex = _oldestBufferIndex
+                _oldestBufferIndex = _oldBufferIndex
+                _oldBufferIndex = _newBufferIndex
+                _newBufferIndex = tmpIndex
+                
+                _simulationTime += CFAbsoluteTime(_config.simInterval)
+
+                _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin = 0
+                _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end = min(_config.numBodies, block_size)
+                
+                if (nextModel) {
+                    nextModel = false
+                    initalizeData()
+                }
+                
+            } else { // go to next block
+                _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin + block_size
+                _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end + block_size
             }
-            
-        } else { // go to next block
-            _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin + block_size
-            _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end + block_size
-        }
 
-        return 
-        // testing only (no compute) return _positions[_oldBufferIndex]
+            return
+            // testing only (no compute) return _positions[_oldBufferIndex]
+        }
     }
 
     //func runAsyncWithUpdateHandler

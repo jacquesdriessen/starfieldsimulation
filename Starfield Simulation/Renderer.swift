@@ -69,6 +69,7 @@ class Renderer {
     var dynamicUniformBuffers = [MTLBuffer]()
     var currentBufferIndex: Int = 0
     var _renderScale: Float = 1
+    var nightSkyMode: Bool = false
     
     // Captured image texture cache
     var capturedImageTextureCache: CVMetalTextureCache!
@@ -221,8 +222,9 @@ class Renderer {
                 
                 renderEncoder.label = "MyRenderEncoder"
                 
-                drawCapturedImage(renderEncoder: renderEncoder)
-  /*              drawAnchorGeometry(renderEncoder: renderEncoder)
+                if !nightSkyMode {
+                    drawCapturedImage(renderEncoder: renderEncoder)
+                }   /*              drawAnchorGeometry(renderEncoder: renderEncoder)
                  */
                 drawStars(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer1: positionsBuffer1, positionsBuffer2: positionsBuffer2, interpolation: interpolation)
                 
