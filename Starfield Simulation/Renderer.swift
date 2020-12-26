@@ -20,7 +20,7 @@ protocol RenderDestinationProvider {
 }
 
 // The max number of command buffers in flight
-let kMaxBuffersInFlight: Int = 3
+let kMaxBuffersInFlight: Int = 2
 
 // The max number anchors our uniform buffer will hold
 let kMaxAnchorInstanceCount: Int = 64

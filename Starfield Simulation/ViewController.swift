@@ -149,7 +149,10 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             let anchor = ARAnchor(transform: transform)
             session.add(anchor: anchor)
         }*/
-        _simulation.advanceModel()
+        // make sure we are not processing stuff on the gpu before we modify data.
+        let _ = renderer.inFlightSemaphore.wait(timeout: DispatchTime.distantFuture)
+            _simulation.initalizeData()
+        renderer.inFlightSemaphore.signal()
     }
     
     // MARK: - MTKViewDelegate

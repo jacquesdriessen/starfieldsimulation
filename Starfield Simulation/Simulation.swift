@@ -184,7 +184,8 @@ class StarSimulation : NSObject {
              
              } */
             
-            //velocity = velocity * (vector_float4(1,1,1,0) +  0.25 * vector_float4(generate_random_normalized_vector(), 0))
+            velocity = velocity * (vector_float4(1,1,1,0) +  0.05
+                                    * vector_float4(generate_random_normalized_vector(), 0))
             
             velocity.z = flatten*(velocity.z + position.x * axis.y - position.y * axis.x)
             
@@ -206,11 +207,9 @@ class StarSimulation : NSObject {
         velocities[first] = vector_float4(velocityOffset, 0) * vscale
     }
     
-    func advanceModel() {
-        nextModel = true;
-    }
     
     func initalizeData() {
+ 
         let maxModel = 12
                 
         switch model {
@@ -219,37 +218,37 @@ class StarSimulation : NSObject {
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
         case 1: // small & big galaxy
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = _config.numBodies/8
-            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0, -0.25), velocityOffset: vector_float3(0/*.05*/,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0/*.05*/,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
             makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 2: // make them collide
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = 0
         case 3: // equal galaxies, parallel
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 4: // make them collide
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = 0
         case 5:// equal galaxies / parallel / opposite rotation
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,-Float.pi/2,Float.pi/2), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,-Float.pi/2,Float.pi/2), flatten: 0.05)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 6: // make them collide
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = 0
         case 7: // equal galaxies, same plane
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
         case 8: // make them collide
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = 0
         case 9: // equal galaxies, same plane / opposite rotation
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,Float.pi), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,Float.pi), flatten: 0.05)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
         case 10: // make them collide
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = 0
         case 11: // equal galaxies / different orientations
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
             makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,-0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 12: // make them collide
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = 0
