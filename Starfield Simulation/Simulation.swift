@@ -30,7 +30,6 @@ func generate_random_normalized_vector() -> vector_float3 {
 }
 
 class StarSimulation : NSObject {
-    let block_size: UInt32 = 1024 // max particles that we can calculate before we need to redraw, 1024 if we need 32768 bodies is a good choice, 4096 for 8192 etc.
     var _device: MTLDevice!
     var _commandQueue: MTLCommandQueue!
     var _computePipeline : MTLComputePipelineState!
@@ -56,12 +55,18 @@ class StarSimulation : NSObject {
     var _simulationParams: MTLBuffer!
     
     var _config: SimulationConfig!
+ 
+    let block_size: UInt32 = 1024 // 1024 // max particles that we can calculate before we need to redraw, 1024 if we need 32768 bodies is a good choice, 4096 for 8192 etc.
+    var _blocks = [MTLBuffer]()
+    
+    var blockBegin : UInt = 0
     
     var _simulationTime: CFAbsoluteTime = 0
     
     var halt: Bool = false // apparently this needs to be thread safe.
+    var advanceIndex: Bool = false
     
-    var nextModel: Bool = false
+    //var nextModel: Bool = false
     
     init(computeDevice: MTLDevice, config: SimulationConfig) {
         super.init()
@@ -90,13 +95,16 @@ class StarSimulation : NSObject {
         _threadgroupMemoryLength = _computePipeline.threadExecutionWidth * MemoryLayout<vector_float4>.size
         
         let bufferSize = MemoryLayout<vector_float3>.size * Int(_config.numBodies)
+     
         
         for i in 0..<3 {
             _positions.append(_device.makeBuffer(length: bufferSize, options: .storageModeShared)!)
             _velocities.append(_device.makeBuffer(length: bufferSize, options: .storageModeShared)!)
+            _blocks.append(_device.makeBuffer(length: MemoryLayout<StarBlock>.size, options: .storageModeShared)!)
        
             _positions[i].label = "Positions" + String(i)
             _velocities[i].label = "Velocities" + String(i)
+            _blocks[i].label = "Blocks" + String(i)
         }
  
         _simulationParams = _device.makeBuffer(length: MemoryLayout<StarSimParams>.size, options: .storageModeShared)
@@ -109,9 +117,11 @@ class StarSimulation : NSObject {
         params[0].softeningSqr = _config.softeningSqr
         params[0].numBodies = _config.numBodies
         params[0].split = 0
-        params[0].block_begin = 0
-        params[0].block_end = min(_config.numBodies, block_size)
         
+     //   params[0].block_begin = 0
+     //   params[0].block_end = min(_config.numBodies, block_size)
+        
+        // don't think this is needed...
         let updateDataSize: Int = Int(_config.renderBodies) * MemoryLayout<vector_float3>.size
         
         for i in 0..<NumUpdateBuffersStored {
@@ -120,9 +130,9 @@ class StarSimulation : NSObject {
         }
     }
     
-    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3, velocityOffset: vector_float3, rotation: vector_float3, flatten: Float) {
-        let pscale : Float = _config.clusterScale
-        let vscale : Float = _config.velocityScale * pscale
+    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3, velocityOffset: vector_float3, rotation: vector_float3, flatten: Float, prescale : Float = 1, vrescale: Float = 1) {
+        let pscale : Float = _config.clusterScale * prescale
+        let vscale : Float = _config.velocityScale * pscale * vrescale
         let inner : Float = 2.5 * pscale
         let outer : Float = 4.0 * pscale
         var total_mass: Float = 0
@@ -138,9 +148,9 @@ class StarSimulation : NSObject {
         _oldBufferIndex = 0
         _newBufferIndex = 1
         _oldestBufferIndex = 2
-        _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin = 0
-        _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end = min(_config.numBodies, block_size)
 
+        blockBegin = 0 // make sure we start calculations from the beginning.
+        advanceIndex = false // make sure we start calculations from the beginning.
         
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -148,7 +158,6 @@ class StarSimulation : NSObject {
         let velocities2 = _velocities[_oldestBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let positions3 = _positions[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities3 = _velocities[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
-
 
         for i in first...last {
             
@@ -232,7 +241,7 @@ class StarSimulation : NSObject {
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
         case 1: // small & big galaxy
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = _config.numBodies/8
-            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0/*.05*/,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0/*.05*/,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, prescale: 0.125)
             makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 2: // make them collide
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.split = 0
@@ -311,13 +320,29 @@ class StarSimulation : NSObject {
     }
     
     func getInterpolation() -> Float {
-        return Float(_simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin)/Float(_config.numBodies)
+        let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self)
+        return Float(blocks[0].begin)/Float(_config.numBodies)
     }
     
 
     
     func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) {
         if (!halt) {
+            if advanceIndex {
+                advanceIndex = false
+                
+                let tmpIndex = _oldestBufferIndex
+                _oldestBufferIndex = _oldBufferIndex
+                _oldBufferIndex = _newBufferIndex
+                _newBufferIndex = tmpIndex
+                
+                _simulationTime += CFAbsoluteTime(_config.simInterval)
+
+            }
+            let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self) // ensure we start at the beginning with compute!
+            blocks[0].begin = UInt32(blockBegin) // the block we want to calculate
+            blocks[0].end = min(_config.numBodies, UInt32(blockBegin) + block_size)
+            
             commandBuffer.pushDebugGroup("Simulation")
             
             let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
@@ -328,33 +353,19 @@ class StarSimulation : NSObject {
             computeEncoder.setBuffer(_positions[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldPosition.rawValue))
             computeEncoder.setBuffer(_velocities[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldVelocity.rawValue))
             computeEncoder.setBuffer(_simulationParams, offset: 0, index: Int(starComputeBufferIndexParams.rawValue))
-
+            computeEncoder.setBuffer(_blocks[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexBlock.rawValue))
             computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // duplicate
             computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
             
             computeEncoder.endEncoding()
             commandBuffer.popDebugGroup()
+            
+            if (UInt32(blockBegin) + block_size) >= _config.numBodies { // commit frame
+                blockBegin = 0
+                advanceIndex = true
 
-            if (_simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end >= _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.numBodies) { // commit frame
-
-                let tmpIndex = _oldestBufferIndex
-                _oldestBufferIndex = _oldBufferIndex
-                _oldBufferIndex = _newBufferIndex
-                _newBufferIndex = tmpIndex
-                
-                _simulationTime += CFAbsoluteTime(_config.simInterval)
-
-                _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin = 0
-                _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end = min(_config.numBodies, block_size)
-                
-                if (nextModel) {
-                    nextModel = false
-                    initalizeData()
-                }
-                
-            } else { // go to next block
-                _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin + block_size
-                _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end + block_size
+               } else { // go to next block
+                blockBegin = blockBegin + UInt(block_size)
             }
 
             return
