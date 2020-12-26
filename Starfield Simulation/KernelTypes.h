@@ -24,13 +24,12 @@ typedef struct StarSimParams
     float  damping;
     float  softeningSqr;
     unsigned int numBodies;
-    unsigned int split;
 } StarSimParams;
 
 typedef struct StarBlock
 {
     unsigned int begin;
-    unsigned int end;
+    unsigned int split;
 } StarBlock;
 
 #endif /* KernelTypes_h */

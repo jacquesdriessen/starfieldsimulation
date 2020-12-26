@@ -223,7 +223,6 @@ vertex StarColorInOut starVertexShader(
     
     out.pointSize = out.radius * 100.0 / distance((modelViewMatrix * position).xyz, out.position.xyz);
     
-    
     return out;
 }
 
@@ -308,7 +307,6 @@ fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
         fragColor = half4(0.5h + 0.5h * fragColor.x, 0.5h * fragColor.y, 0.5h * fragColor.z, fragColor.w);
     }
 
-     
     return fragColor * mix(x, y, a);
 }
 

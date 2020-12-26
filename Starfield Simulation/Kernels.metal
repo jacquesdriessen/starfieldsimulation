@@ -42,53 +42,52 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
                             const uint               threadInGroup     [[ thread_position_in_threadgroup            ]],
                             const uint               numThreadsInGroup [[ threads_per_threadgroup                   ]])
 {
-    float4 currentPosition = oldPosition[threadInGrid];
-    float4 currentVelocity = oldVelocity[threadInGrid];
+    const uint threadGlobal = threadInGrid + block.begin;
+    float4 currentPosition = oldPosition[threadGlobal];
+    float4 currentVelocity = oldVelocity[threadGlobal];
 
-    if (threadInGrid >= block.begin && threadInGrid < block.end) { // smarter approach would be to not call the gpu at all for stuff we don't need to calculate
+    float3 acceleration = 0.0f;
+    uint i, j;
+    
+    const float softeningSqr = params.softeningSqr;
+    
+    const uint split = block.split;
+    
+    bool partition = (threadGlobal < split) ? 0 : 1;
+    const uint particles = (threadGlobal < split) ? split : params.numBodies - split;
+        
+    // For each particle / body
+    uint sourcePosition = threadInGroup + (partition * split);
 
-        float3 acceleration = 0.0f;
-        uint i, j;
-        
-        const float softeningSqr = params.softeningSqr;
-        
-        const uint split = params.split;
-        
-        bool partition = (threadInGrid < split) ? 0 : 1;
-        const uint particles = (threadInGrid < split) ? split : params.numBodies - split;
+    for(i = 0; i < particles; i += numThreadsInGroup)
+        {
+            // Because sharedPosition uses the threadgroup address space, 'numThreadsInGroup' elements
+            // of sharedPosition will be initialized at once (not just one element at lid as it
+            // may look like)
+            sharedPosition[threadInGroup] = oldPosition[sourcePosition];
             
-        // For each particle / body
-        uint sourcePosition = threadInGroup + (partition * split);
-
-        for(i = 0; i < particles; i += numThreadsInGroup)
+            j = 0;
+            
+            while(j < numThreadsInGroup)
             {
-                // Because sharedPosition uses the threadgroup address space, 'numThreadsInGroup' elements
-                // of sharedPosition will be initialized at once (not just one element at lid as it
-                // may look like)
-                sharedPosition[threadInGroup] = oldPosition[sourcePosition];
-                
-                j = 0;
-                
-                while(j < numThreadsInGroup)
-                {
-                    acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
-                    acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
-                    acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
-                    acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
-                    acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
-                    acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
-                    acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
-                    acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
-                } // while
-                
-                sourcePosition += numThreadsInGroup;
-            } // for
-         
-        currentVelocity.xyz += acceleration * params.timestep;
-        currentVelocity.xyz *= params.damping;
-        currentPosition.xyz += currentVelocity.xyz * params.timestep;
-        newPosition[threadInGrid] = currentPosition;
-        newVelocity[threadInGrid] = currentVelocity;
-    }
+                acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
+                acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
+                acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
+                acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
+                acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
+                acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
+                acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
+                acceleration += computeAcceleration(sharedPosition[j++], currentPosition, softeningSqr);
+            } // while
+            
+            sourcePosition += numThreadsInGroup;
+        } // for
+     
+    currentVelocity.xyz += acceleration * params.timestep;
+    currentVelocity.xyz *= params.damping;
+    currentPosition.xyz += currentVelocity.xyz * params.timestep;
+    newPosition[threadGlobal] = currentPosition;
+    newVelocity[threadGlobal] = currentVelocity;
+
 } // NBodyIntegrateSystem
 
