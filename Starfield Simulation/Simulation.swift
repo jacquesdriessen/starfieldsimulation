@@ -30,7 +30,7 @@ func generate_random_normalized_vector() -> vector_float3 {
 }
 
 class StarSimulation : NSObject {
-    let block_size: UInt32 = 4096 // max particles that we can calculate before we need to redraw
+    let block_size: UInt32 = 1024 // max particles that we can calculate before we need to redraw, 1024 if we need 32768 bodies is a good choice, 4096 for 8192 etc.
     var _device: MTLDevice!
     var _commandQueue: MTLCommandQueue!
     var _computePipeline : MTLComputePipelineState!
@@ -60,6 +60,8 @@ class StarSimulation : NSObject {
     var _simulationTime: CFAbsoluteTime = 0
     
     var halt: Bool = false // apparently this needs to be thread safe.
+    
+    var nextModel: Bool = false
     
     init(computeDevice: MTLDevice, config: SimulationConfig) {
         super.init()
@@ -204,6 +206,10 @@ class StarSimulation : NSObject {
         velocities[first] = vector_float4(velocityOffset, 0) * vscale
     }
     
+    func advanceModel() {
+        nextModel = true;
+    }
+    
     func initalizeData() {
         let maxModel = 12
                 
@@ -259,7 +265,7 @@ class StarSimulation : NSObject {
             model += 1
         }
     }
-    
+    /*
     func randomMoveStars() {
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
 //        let numBodies : Int = 4096
@@ -282,7 +288,7 @@ class StarSimulation : NSObject {
         blitEncoder.popDebugGroup()
         blitEncoder.endEncoding()
     }
-    
+    */
     func getStablePositionBuffer1() -> MTLBuffer {
         return _positions[_oldestBufferIndex]
     }
@@ -326,6 +332,11 @@ class StarSimulation : NSObject {
 
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin = 0
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_end = min(_config.numBodies, block_size)
+            
+            if (nextModel) {
+                nextModel = false
+                initalizeData()
+            }
             
         } else { // go to next block
             _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self).pointee.block_begin + block_size

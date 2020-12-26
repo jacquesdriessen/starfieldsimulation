@@ -101,7 +101,10 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     func beginSimulation() {
         _simulationTime = 0
-        _config = SimulationConfig(damping: 1, softeningSqr: 0.01, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000080, simDuration: 100 /* dont think thtis was implemented */)
+     //   _config = SimulationConfig(damping: 1, softeningSqr: 0.01, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000320, simDuration: 100 /* dont think thtis was implemented */)
+        _config = SimulationConfig(damping: 1, softeningSqr: 0.08, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000640, simDuration: 100 /* dont think thtis was implemented */) // this is fairly realistic (my opinion)
+        _config = SimulationConfig(damping: 1, softeningSqr: 0.16, numBodies: 32768, clusterScale: 0.05, velocityScale: 25000, renderScale: 40, renderBodies: 16 /* not implemented */, simInterval: 0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
+
         
         
         // Configure the renderer to draw to the view
@@ -146,7 +149,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             let anchor = ARAnchor(transform: transform)
             session.add(anchor: anchor)
         }*/
-        _simulation.initalizeData()
+        _simulation.advanceModel()
     }
     
     // MARK: - MTKViewDelegate
