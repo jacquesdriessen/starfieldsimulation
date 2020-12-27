@@ -26,9 +26,11 @@ func generate_random_normalized_vector() -> vector_float3 {
 }
 
 class StarSimulation : NSObject {
-    let block_size: UInt32 = 2048   // // 4096> does weird things... 2048 // max particles that we can calculate before we need to redraw, for iphone 8 / my ipad 2048 if we need 32768 bodies is a good choice, 4096 for 8192 etc. (n*n calculations, so this needs to scale as 1/n*n)
+    let block_size: UInt32 = 2048 // will get ~ 60 fps on iphone 8. max particles that we can calculate before we need to redraw, for iphone 8 / my ipad 2048 if we need 32768 bodies is a good choice, 4096 for 8192 etc. (n*n calculations, so this needs to scale as 1/n*n)
     var _blocks = [MTLBuffer]()
     
+    let blockSemaphore = DispatchSemaphore(value: 1) // don't have overlapping block calculations
+
     var _device: MTLDevice!
     var _commandQueue: MTLCommandQueue!
     var _computePipeline : MTLComputePipelineState!
@@ -81,10 +83,11 @@ class StarSimulation : NSObject {
         }
        
         _threadsperThreadgroup = MTLSizeMake(_computePipeline.threadExecutionWidth, 1, 1)
-        _dispatchExecutionSize = MTLSizeMake((Int(block_size) + _computePipeline.threadExecutionWidth - 1) / _computePipeline.threadExecutionWidth, 1, 1)
+        _dispatchExecutionSize = MTLSizeMake((Int(min(block_size, _config.numBodies)) + _computePipeline.threadExecutionWidth - 1) / _computePipeline.threadExecutionWidth, 1, 1)
         _threadgroupMemoryLength = _computePipeline.threadExecutionWidth * MemoryLayout<vector_float4>.size
         
-        let bufferSize = MemoryLayout<vector_float3>.size * Int(_config.numBodies)
+        
+        let bufferSize = MemoryLayout<vector_float3>.size * Int( ( ( UInt32(_config.numBodies) + block_size) / block_size) * block_size) // as integer math, this should give us a buffer that holds either the exact numBodies (in case that's a multiple of block_size), or numBodies + block_size (in case it's not). Required as otherwise the GPU will try to access memory > buffer.
      
         
         for i in 0..<3 {
@@ -148,7 +151,7 @@ class StarSimulation : NSObject {
             } else {
 
                 let nrpos = generate_random_normalized_vector()
-                //let position = nrpos * abs(generate_random_vector(min:inner, max: outer)) // altenernate
+                //let position = nrpos * abs(generate_random_vector(min:inner, max: outer)) // alternate
                 let rpos = abs(generate_random_normalized_vector())
                 let position = nrpos * (inner + ((outer-inner) * rpos));
                 
@@ -290,6 +293,9 @@ class StarSimulation : NSObject {
 
     func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) {
         if (!halt) {
+            // could be done smarter, e.g. make sure we only wait if we need to advance the frame, now it just waits advancing + pushing stuff to the gpu every compute cyle, but otherwise we get artefacts (particles not advancing, because of advancing frames before computations have finished.
+            let _ = blockSemaphore.wait(timeout: DispatchTime.distantFuture)
+
             if advanceIndex {
                 advanceIndex = false
                 
@@ -301,13 +307,20 @@ class StarSimulation : NSObject {
                 _simulationTime += CFAbsoluteTime(_config.simInterval)
                 
                 currentSplit = newSplit // only apply new split at beginning of an entire block (as otherwise part of the particles will have only partially calculated stuff)
-
+                
             }
+            
             let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self) // ensure we start at the beginning with compute!
             blocks[0].begin = UInt32(blockBegin) // the block we want to calculate
             blocks[0].split = currentSplit
             
             commandBuffer.pushDebugGroup("Simulation")
+            
+            commandBuffer.addCompletedHandler{ [weak self] commandBuffer in
+                if let strongSelf = self {
+                    strongSelf.blockSemaphore.signal()
+                }
+            }
             
             let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
             computeEncoder.setComputePipelineState(_computePipeline)
