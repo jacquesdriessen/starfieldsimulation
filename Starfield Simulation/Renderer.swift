@@ -384,14 +384,12 @@ class Renderer {
         let uniforms = sharedUniformBufferAddress.assumingMemoryBound(to: SharedUniforms.self)
         
         uniforms.pointee.viewMatrix = frame.camera.viewMatrix(for: .landscapeRight)
-
-        uniforms.pointee.projectionMatrix = frame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
             *
             float4x4(simd_float4(_renderScale,0,0,0),
                      simd_float4(0,_renderScale,0,0),
                      simd_float4(0,0,_renderScale,0),
                      simd_float4(0,0,0,1))
-        
+        uniforms.pointee.projectionMatrix = frame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
     }
 
     func updateCapturedImageTextures(frame: ARFrame) {

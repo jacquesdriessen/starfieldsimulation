@@ -35,6 +35,7 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
                             device float4*           oldVelocity       [[ buffer(starComputeBufferIndexOldVelocity) ]],
                             constant StarSimParams & params            [[ buffer(starComputeBufferIndexParams)      ]],
                             constant StarBlock & block                 [[ buffer(starComputeBufferIndexBlock)       ]],
+                            constant Tracking & tracking               [[ buffer(starComputeBufferIndexTracking)    ]],
                             threadgroup float4     * sharedPosition    [[ threadgroup(0)                            ]],
                             const uint               threadInGrid      [[ thread_position_in_grid                   ]],
                             const uint               threadInGroup     [[ thread_position_in_threadgroup            ]],
@@ -81,9 +82,12 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
             sourcePosition += numThreadsInGroup;
         } // for
      
-    currentVelocity.xyz += acceleration * params.timestep;
+    if (oldPosition[threadGlobal].w < 0) { // allow for negative mass, so we can "push things away"
+        acceleration = - acceleration;
+    }
+    currentVelocity.xyz += acceleration * params.timestep - tracking.velocity.xyz;
     currentVelocity.xyz *= params.damping;
-    currentPosition.xyz += currentVelocity.xyz * params.timestep;
+    currentPosition.xyz += currentVelocity.xyz * params.timestep - tracking.position.xyz;
     newPosition[threadGlobal] = currentPosition;
     newVelocity[threadGlobal] = currentVelocity;
 

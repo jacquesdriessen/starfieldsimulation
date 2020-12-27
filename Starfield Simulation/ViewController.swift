@@ -47,7 +47,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             print("Metal is not supported on this device")
             return
         }
-
         
         let doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleDoubleTap(gestureRecognize:)))
         view.addGestureRecognizer(doubleTapGesture)
@@ -57,6 +56,10 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         view.addGestureRecognizer(tapGesture)
         tapGesture.numberOfTapsRequired = 1
         tapGesture.require(toFail: doubleTapGesture)
+        
+        let longPressGesture = UILongPressGestureRecognizer (target: self, action: #selector(ViewController.handleLongPress(gestureRecognize:)))
+        view.addGestureRecognizer(longPressGesture)
+        longPressGesture.minimumPressDuration = 1
         
         let swipeRightGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipe(gestureRecognize:)))
         view.addGestureRecognizer(swipeRightGesture)
@@ -74,7 +77,8 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         view.addGestureRecognizer(swipeDownGesture)
         swipeDownGesture.direction = .down
         
-        
+        let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(ViewController.handlePinch(gestureRecognize:)))
+        view.addGestureRecognizer(pinchGesture)
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -91,8 +95,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             _terminateAllSimulations = true
         }
     }
-    
-    
+        
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
@@ -115,9 +118,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.01, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000320, simDuration: 100 /* dont think thtis was implemented */)
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.08, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000640, simDuration: 100 /* dont think thtis was implemented */) // this is fairly realistic (my opinion)
       //  _config = SimulationConfig(damping: 1, softeningSqr: 2*2*0.16, numBodies: 2*32768, clusterScale: 0.05, velocityScale: 25000, renderScale: 2*40, renderBodies: 16 /* not implemented */, simInterval: 2*2*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
-        _config = SimulationConfig(damping: 1, softeningSqr: 0.128, numBodies: 32768, clusterScale: 0.035, velocityScale: 40000, renderScale: 40, renderBodies: 16 /* not implemented */, simInterval: 0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
-
-        
+        _config = SimulationConfig(damping: 1, softeningSqr: 0.128, numBodies: 32768, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
         
         // Configure the renderer to draw to the view
         renderer = Renderer(session: session, metalDevice: _view.device!, renderDestination: _view, numBodies: Int(_config.numBodies))
@@ -132,7 +133,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         
         _simulation = StarSimulation.init(computeDevice: _computeDevice, config: _config)
 
-        
         _commandQueue = renderer.device.makeCommandQueue()
     }
 
@@ -152,23 +152,25 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         guard gestureRecognize.view != nil else {
             return
         }
+        
         if gestureRecognize.state == .ended {
             _simulation.halt = !_simulation.halt // pause
         }
-        /* // Create anchor using the camera's current position
-         if let currentFrame = session.currentFrame {
-         
-         // Create a transform with a translation of 0.2 meters in front of the camera
-         var translation = matrix_identity_float4x4
-         translation.columns.3.z = -0.2
-         let transform = simd_mul(currentFrame.camera.transform, translation)
-         
-         // Add a new anchor to the session
-         let anchor = ARAnchor(transform: transform)
-         session.add(anchor: anchor)
-         }*/
-        
     }
+
+    @objc
+    func handleLongPress(gestureRecognize: UILongPressGestureRecognizer) {
+        guard gestureRecognize.view != nil else {
+            return
+        }
+        
+        _simulation.interact = true
+        
+        if gestureRecognize.state == .ended {
+            _simulation.interact = false
+        }
+    }
+
     
     @objc
     func handleSwipe(gestureRecognize: UISwipeGestureRecognizer) {
@@ -182,6 +184,31 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             renderer.inFlightSemaphore.signal()
         }
     }
+
+    @objc
+    func handlePinch(gestureRecognize: UIPinchGestureRecognizer) {
+        guard gestureRecognize.view != nil else {
+            return
+        }
+        if gestureRecognize.state == .ended {
+            switch _simulation.track {
+                case 0:
+                    _simulation.track = 1
+                case 1:
+                    _simulation.track = 2
+                case 2:
+                    _simulation.track = 3
+                case 3:
+                    _simulation.track = 0
+                default:
+                    _simulation.track = 0
+            }
+        }
+        
+    }
+
+    
+    
     
     // MARK: - MTKViewDelegate
     
@@ -192,6 +219,12 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     // Called whenever the view needs to render
     func draw(in view: MTKView) {
+        
+        // update position 20cms in front of the camera using the camera's current position, "finger"
+        if let currentFrame = session.currentFrame {
+            _simulation.camera = currentFrame.camera.transform
+        }
+               
         if _simulation != nil {
             renderer.draw(positionsBuffer1: _simulation.getStablePositionBuffer1(), positionsBuffer2: _simulation.getStablePositionBuffer2(), interpolation: _simulation.getInterpolation(), numBodies: Int(_config.numBodies), inView: _view)
         }

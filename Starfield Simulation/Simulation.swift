@@ -25,6 +25,10 @@ func generate_random_normalized_vector() -> vector_float3 {
     return generate_random_vector(min: 1, max: 1)
 }
 
+func length_float4(vector: vector_float4) -> Float {
+    return sqrt(vector.x*vector.x + vector.y+vector.y + vector.z+vector.z)
+}
+
 class StarSimulation : NSObject {
     let block_size: UInt32 = 2048 // will get ~ 60 fps on iphone 8. max particles that we can calculate before we need to redraw, for iphone 8 / my ipad 2048 if we need 32768 bodies is a good choice, 4096 for 8192 etc. (n*n calculations, so this needs to scale as 1/n*n)
     var _blocks = [MTLBuffer]()
@@ -40,6 +44,7 @@ class StarSimulation : NSObject {
     
     var _positions = [MTLBuffer]()
     var _velocities = [MTLBuffer]()
+    var _tracking = [MTLBuffer]()
     
     var _dispatchExecutionSize: MTLSize!
     var _threadsperThreadgroup: MTLSize!
@@ -57,12 +62,17 @@ class StarSimulation : NSObject {
     var blockBegin : UInt = 0
     var currentSplit: UInt32 = 0
     var newSplit: UInt32 = 0
+    var trackSplit: UInt32 = 0
     
     var _simulationTime: CFAbsoluteTime = 0
     
     var halt: Bool = false // apparently this needs to be thread safe.
     var advanceIndex: Bool = false
+    var camera : simd_float4x4 = matrix_identity_float4x4
+    var interact = false
     
+    var track = 0
+
     init(computeDevice: MTLDevice, config: SimulationConfig) {
         super.init()
         
@@ -94,10 +104,12 @@ class StarSimulation : NSObject {
             _positions.append(_device.makeBuffer(length: bufferSize, options: .storageModeShared)!)
             _velocities.append(_device.makeBuffer(length: bufferSize, options: .storageModeShared)!)
             _blocks.append(_device.makeBuffer(length: MemoryLayout<StarBlock>.size, options: .storageModeShared)!)
+            _tracking.append(_device.makeBuffer(length: MemoryLayout<Tracking>.size, options: .storageModeShared)!)
        
             _positions[i].label = "Positions" + String(i)
             _velocities[i].label = "Velocities" + String(i)
             _blocks[i].label = "Blocks" + String(i)
+            _tracking[i].label = "Tracking" + String(i)
         }
  
         _simulationParams = _device.makeBuffer(length: MemoryLayout<StarSimParams>.size, options: .storageModeShared)
@@ -111,27 +123,63 @@ class StarSimulation : NSObject {
         params[0].numBodies = _config.numBodies
     }
     
-    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3, velocityOffset: vector_float3, rotation: vector_float3, flatten: Float, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1) {
-        let pscale : Float = _config.clusterScale * prescale
-        let vscale : Float = _config.velocityScale * pscale * vrescale * 0.10
-        let inner : Float = 2.5 * pscale
-        let outer : Float = 4.0 * pscale
-        var total_mass: Float = 0
+    func translate(translation: vector_float3) -> simd_float4x4 {
+        return simd_float4x4(simd_float4(1,0,0,0), // note this is column by column if I understood correctly
+                             simd_float4(0,1,0,0),
+                             simd_float4(0,0,1,0),
+                             simd_float4(translation.x, translation.y, translation.z, 1))
+    }
+    
+    func rotate (rotation: vector_float3) -> simd_float4x4 {
         let alpha = rotation.x //https://en.wikipedia.org/wiki/Rotation_matrix
         let beta = rotation.y
         let gamma = rotation.z
         
-        let rotation_matrix = simd_float4x4(simd_float4(cos(alpha)*cos(beta), cos(alpha)*sin(beta)*sin(gamma)-sin(alpha)*cos(gamma), cos(alpha)*sin(beta)*cos(gamma)+sin(alpha)*sin(gamma), 0),
-                                              simd_float4(sin(alpha)*cos(beta), sin(alpha)*sin(beta)*sin(gamma)+cos(alpha)*cos(gamma), sin(alpha)*sin(beta)*cos(gamma)-cos(alpha)*sin(gamma), 0),
-                                              simd_float4(-sin(beta), cos(beta)*sin(gamma), cos(beta)*cos(gamma),0),
-                                              simd_float4(0, 0, 0, 1))
+        return simd_float4x4(simd_float4(cos(alpha)*cos(beta), sin(alpha)*cos(beta), -sin(beta), 0),
+                             simd_float4(cos(alpha)*sin(beta)*sin(gamma)-sin(alpha)*cos(gamma), sin(alpha)*sin(beta)*sin(gamma)+cos(alpha)*cos(gamma), cos(beta)*sin(gamma), 0),
+                             simd_float4(cos(alpha)*sin(beta)*cos(gamma)+sin(alpha)*sin(gamma), sin(alpha)*sin(beta)*cos(gamma)-cos(alpha)*sin(gamma),
+                                         cos(beta)*cos(gamma),0),
+                             simd_float4(0, 0, 0, 1))
+    }
     
+    func scale (factor: vector_float3) -> simd_float4x4 {
+        return simd_float4x4(simd_float4(1/factor.x,0,0,0), // note this is column by column if I understood correctly
+                             simd_float4(0,1/factor.y,0,0),
+                             simd_float4(0,0,1/factor.z,0),
+                             simd_float4(0, 0, 0, 1))
+    }
+    
+    func cross_product (a: vector_float3, b: vector_float3) -> vector_float3 {
+        var x_product = vector_float3(0,0,0)
+        
+        x_product.x = a.y * b.z - a.z * b.y
+        x_product.y = a.z * b.x - a.x * b.z
+        x_product.z = a.x * b.y - a.y * b.x
+        
+        return x_product
+    }
+    
+    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3 = vector_float3(0,0,0), velocityOffset: vector_float3 = vector_float3(0,0,0), axis: vector_float3 = vector_float3(0,0,0), flatten: Float = 1, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1) {
+        let pscale : Float = _config.clusterScale * prescale
+        let vscale : Float = _config.velocityScale * pscale * vrescale
+        let inner : Float = 2.5 * pscale
+        let outer : Float = 4.0 * pscale
+        var total_mass: Float = 0
+
+        let rightInFrontOfCamera = simd_mul(camera, translate(translation:vector_float3(0,0,-0.5))) //0.5 meters in front of the camera, so we can see it!
+        let rotation_matrix = rotate(rotation: axis)
+
+        let position_transformation = rightInFrontOfCamera * translate(translation: positionOffset) * rotation_matrix
+        let velocity_transformation = rightInFrontOfCamera * translate(translation: velocityOffset * _config.clusterScale * _config.velocityScale) * rotation_matrix
+        
         _oldBufferIndex = 0
         _newBufferIndex = 1
         _oldestBufferIndex = 2
 
         blockBegin = 0 // make sure we start calculations from the beginning.
         advanceIndex = true // make sure we start calculations from the beginning.
+        
+        track = 0 // stop tracking
         
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -141,9 +189,12 @@ class StarSimulation : NSObject {
         let velocities3 = _velocities[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
 
         for i in first...last {
-            
-            if i == last {
-                // stationary supermassive black hole in the middle.
+            if i == first { // reserve first particle to be able to interact with things.
+                positions[i] = vector_float4(0,0,0,0)
+                positions[i].w = 0
+                velocities[i] = vector_float4(0,0,0,0)
+            }
+            else if i == last { // last particle is stationary supermassive black hole in the middle.
                 positions[i] = vector_float4(0,0,0,0)
                 positions[i].w = pow ((1/400) * total_mass, 1/3) // black hole is approximately 1/400 of the total mass, radius is cube root.
                 velocities[i] = vector_float4(0,0,0,0)
@@ -162,18 +213,17 @@ class StarSimulation : NSObject {
                 //positions[Int(i)].w = 1 // star size, Mass is this "to the power of three" - model with all equal mass.
                 total_mass += positions[Int(i)].w + positions[Int(i)].w + positions[Int(i)].w
                 
-                var axis = vector_float3 (0.0, 0.0, 1.0)
+                var main_axis = vector_float3 (0.0, 0.0, 1.0)
                 
-                let scalar = nrpos.x * axis.x + nrpos.y * axis.y + nrpos.z * axis.z
+                let scalar = nrpos.x * main_axis.x + nrpos.y * main_axis.y + nrpos.z * main_axis.z
                 
-                if ((1 - scalar) < 0.000001) {
-                    axis.x = nrpos.y
-                    axis.y = nrpos.x
+                if ((1 - scalar) < 0.000001) { // not entirely sure what this is for.
+                    main_axis.x = nrpos.y
+                    main_axis.y = nrpos.x
                     
-                    let axis_sq = axis.x*axis.x + axis.y*axis.y + axis.z * axis.z
+                    let axis_sq = main_axis.x*main_axis.x + main_axis.y*main_axis.y + main_axis.z * main_axis.z
                     
-                    axis = axis / axis_sq.squareRoot()
-                    
+                    main_axis = main_axis / axis_sq.squareRoot()
                 }
 
                 var velocity = vector_float4(0,0,0,0)
@@ -183,16 +233,13 @@ class StarSimulation : NSObject {
                 
                 let nposition = position / sqrt(position.x * position.x + position.y * position.y + position.z * position.z) // used normalized positions for speed, as speed is approximately independent on distance from center.
                 
-                // cross product
-                velocity.x = nposition.y * axis.z - nposition.z * axis.y
-                velocity.y = nposition.z * axis.x - nposition.x * axis.z
-                velocity.z = nposition.x * axis.y - nposition.y * axis.x
-     
-                velocity = velocity * (vector_float4(1,1,1,0) +  vrandomness * vector_float4(generate_random_normalized_vector(), 0)) // add some randomness here
+                velocity = vector_float4(cross_product(a: nposition, b: main_axis),0)
+
+                velocity = velocity * (vector_float4(1,1,1,0) + vrandomness * vector_float4(generate_random_normalized_vector(), 0)) // add some randomness here
                 
 
                 velocities[i] = velocity * vscale
-
+                
                 // squeeze fakes our way into a spiral galaxy, adjust velocities + create a bar.
                 velocities[i].x /= squeeze
                 velocities[i].y *= squeeze
@@ -202,15 +249,15 @@ class StarSimulation : NSObject {
                     positions[i].y /= squeeze
                 }
             }
+ 
             
-            // rotate
-            positions[i] = rotation_matrix * positions[i]
-            velocities[i] = rotation_matrix * velocities[i]
-
-            // translate (for speed this means initial "movement direction").
-            positions[i] = positions[i] + vector_float4(positionOffset, 0)
-            velocities[i] = velocities[i] + (vector_float4(velocityOffset, 0) * vscale)
-           
+            // apply the rotation & translation + go to camera coordinates.
+            let temp_radius = positions[i].w // save this value - as we use this for something else.
+            positions[i].w = 1 // if we don't do this, would mess up the transformation
+            velocities[i].w = 1 // otherwise this wouldn't work either.
+            positions[i] = position_transformation * positions[i]
+            velocities[i] = velocity_transformation * velocities[i]
+            positions[i].w = temp_radius // restores .w
             
             // in case we are "on halt", we still want it to display, e.g. copy to all buffers
             positions2[i] = positions[i]
@@ -228,46 +275,54 @@ class StarSimulation : NSObject {
         switch model {
         case 0: // one galaxy
             newSplit = 0
-            makegalaxy(first:0, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, squeeze: 2)
+            trackSplit = _config.numBodies
+            makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.05, squeeze: 2)
         case 1: // small & big galaxy
             newSplit = _config.numBodies/8
-            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0/*.05*/,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, prescale: 0.125, squeeze: 2)
-            makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
+            trackSplit = newSplit
+            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
+            makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05)
         case 2: // make them collide
             newSplit = 0
         case 3: // equal galaxies, parallel
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
+            trackSplit = newSplit
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 4: // make them collide
             newSplit = 0
         case 5:// equal galaxies / parallel / opposite rotation
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,-Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
+            trackSplit = newSplit
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,-Float.pi/2,0), flatten: 0.05, squeeze: 2)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05)
         case 6: // make them collide
             newSplit = 0
         case 7: // equal galaxies, same plane
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
+            trackSplit = newSplit
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), flatten: 0.05)
         case 8: // make them collide
             newSplit = 0
         case 9: // equal galaxies, same plane / opposite rotation
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,Float.pi), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
+            trackSplit = newSplit
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,0,Float.pi), flatten: 0.05, squeeze: 2)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,0,0), flatten: 0.05)
         case 10: // make them collide
             newSplit = 0
         case 11: // equal galaxies / different orientations
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, squeeze: 2)
-            makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,-0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
+            trackSplit = newSplit
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
+            makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05, squeeze: 2)
         case 12: // make them collide
             newSplit = 0
         default:
             newSplit = 0
-            makegalaxy(first:0, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.25)
+            trackSplit = _config.numBodies
+            makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.25)
         }
         
         if (model == maxModel) {
@@ -307,7 +362,28 @@ class StarSimulation : NSObject {
                 _simulationTime += CFAbsoluteTime(_config.simInterval)
                 
                 currentSplit = newSplit // only apply new split at beginning of an entire block (as otherwise part of the particles will have only partially calculated stuff)
-                
+            }
+
+
+            if (interact)
+            {
+                // interact with (both if we have 2) galaxies
+                var translation = matrix_identity_float4x4
+                translation.columns.3.z = -0.01 // Create a transform with a translation of 0.01 meters behindthe camera
+                let rightInFrontOfCamera = simd_mul(camera, translation)
+
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].x = rightInFrontOfCamera.columns.3.x
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].y = rightInFrontOfCamera.columns.3.y
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].z = rightInFrontOfCamera.columns.3.z
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].w = 23 // roughly 10% of the weight of the entire rest of the simulation combined
+
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].x = rightInFrontOfCamera.columns.3.x
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].y = rightInFrontOfCamera.columns.3.y
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].z = rightInFrontOfCamera.columns.3.z
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].w = 40
+            } else {
+                        _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].w = 0
+                        _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].w = 0
             }
             
             let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self) // ensure we start at the beginning with compute!
@@ -322,6 +398,42 @@ class StarSimulation : NSObject {
                 }
             }
             
+            
+            let trackSpeed : Float = 0.1
+            switch(track) {
+                case 0: do { // no tracking
+                    self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = vector_float4(0,0,0,0)
+                    self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = vector_float4(0,0,0,0)
+                }
+                case 1: do {
+                    let black_hole_position = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1]
+                    let black_hole_velocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1]
+                    
+                    _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
+                    _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
+                }
+                case 2:do {
+                    let black_hole_position = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1]
+                    let black_hole_velocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1]
+                    
+                    _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
+                    _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
+                }
+                case 3: do {
+                    let black_hole_position = 0.5 * (_positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] + _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1])
+                    let black_hole_velocity = 0.5 * (_velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] +
+                        _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1])
+                    
+                    _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
+                    _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
+                }
+
+                default: do { // no tracking
+                    self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = vector_float4(0,0,0,0)
+                    self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = vector_float4(0,0,0,0)
+                }
+            }
+            
             let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
             computeEncoder.setComputePipelineState(_computePipeline)
             
@@ -331,6 +443,7 @@ class StarSimulation : NSObject {
             computeEncoder.setBuffer(_velocities[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldVelocity.rawValue))
             computeEncoder.setBuffer(_simulationParams, offset: 0, index: Int(starComputeBufferIndexParams.rawValue))
             computeEncoder.setBuffer(_blocks[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexBlock.rawValue))
+            computeEncoder.setBuffer(_tracking[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexTracking.rawValue))
             computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // duplicate
             computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
             

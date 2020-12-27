@@ -81,12 +81,7 @@ vertex StarColorInOut starVertexShader(
                                    const device uchar4*         color     [[ buffer(starRenderBufferIndexColors)    ]],
                                    constant StarUniforms &      uniforms  [[ buffer(starRenderBufferIndexUniforms)  ]],
                                    constant SharedUniforms &    sharedUniforms [[ buffer(starRenderBufferIndexSharedUniforms) ]])
-/*
-                                   Vertex in [[stage_in]],
-                                   constant InstanceUniforms *instanceUniforms [[ buffer(kBufferIndexInstanceUniforms) ]],
-                                   ushort vid [[vertex_id]],
-                                   ushort iid [[instance_id]])
-*/
+
 {
     StarColorInOut out;
     
@@ -104,9 +99,9 @@ vertex StarColorInOut starVertexShader(
     
     out.color = half4(color[vertexID]) / 255.0h;
 
-    out.radius = positions1[vertexID].w; //positions[vertexID].w holds radius of the star
+    out.radius = abs(positions1[vertexID].w); //positions[vertexID].w holds radius of the star, if negative, just means negative mass, not radius!!
     
-    out.pointSize = out.radius * 100.0 / distance((modelViewMatrix * position).xyz, out.position.xyz);
+    out.pointSize = out.radius * 2.5 / distance((modelViewMatrix * position).xyz, out.position.xyz);
     
     return out;
 }
@@ -128,7 +123,11 @@ fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
     half4 y = half4(1.0h, 0.7h, 0.3h, fragColor.w);
     half  a = fragColor.w;
 
-    if (inColor.radius > 2.5) { // black hole is green
+    if (inColor.radius > 10) { // this is when we interact, don't show
+        x = half4(.0h, .0h, .0h, x.w);
+        y = half4(.0h, .0h, .0h, y.w);
+        fragColor = half4(.0h, .0h, .0h, fragColor.w);
+    } else if (inColor.radius > 2.5) { // black hole is green
         x = half4(.0h, 1.0h, .0h, x.w);
         y = half4(.0h, 1.0h, .0h, y.w);
         fragColor = half4(.0h, 1.0h, .0h, fragColor.w);

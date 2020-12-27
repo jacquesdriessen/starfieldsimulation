@@ -15,7 +15,8 @@ typedef enum StarComputeBufferIndex
     starComputeBufferIndexNewPosition = 2,
     starComputeBufferIndexNewVelocity = 3,
     starComputeBufferIndexParams      = 4,
-    starComputeBufferIndexBlock       = 5
+    starComputeBufferIndexBlock       = 5,
+    starComputeBufferIndexTracking    = 6
 } StarComputeBufferIndex;
 
 typedef struct StarSimParams
@@ -31,5 +32,11 @@ typedef struct StarBlock
     unsigned int begin;
     unsigned int split;
 } StarBlock;
+
+typedef struct Tracking
+{
+    vector_float4 position;
+    vector_float4 velocity;
+} Tracking;
 
 #endif /* KernelTypes_h */
