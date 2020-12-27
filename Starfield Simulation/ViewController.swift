@@ -19,25 +19,15 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     var renderer: Renderer!
     var _simulation: StarSimulation!
     
-    //var _metalDeviceObserver = NSObject!
-    
     var _simulationTime: CFAbsoluteTime!
-    
- //   var _continuationTime: CFAbsoluteTime!
     
     var _computeDevice: MTLDevice!
     
     var _commandQueue: MTLCommandQueue!
-
-  //  var _configNum: Int = 0
     
     var _config: SimulationConfig!
     
     var _terminateAllSimulations = false
-    
-  //  var _restartSimulation = false
-    
-   // var _blinker: Timer!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -100,10 +90,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             _simulation.halt = true
             _terminateAllSimulations = true
         }
-        
-        // remove device observer
-        
-
     }
     
     
@@ -149,17 +135,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         
         _commandQueue = renderer.device.makeCommandQueue()
     }
-    
-    /*
-    // if on other device, shouldn't be needed
-    func updateWithNewPositionDate(updateData: NSData, simulationTime: CFAbsoluteTime) {
-        let serialQueue = DispatchQueue(label: "com.test.mySerialQueue")
-        serialQueue.sync {
-            renderer.providePositionData(data: updateData)
-            _simulationTime = simulationTime
-        }
-    }
-    */
 
     @objc
     func handleDoubleTap(gestureRecognize: UITapGestureRecognizer) {

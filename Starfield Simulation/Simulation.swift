@@ -22,10 +22,6 @@ func generate_random_vector(min: Float, max: Float) -> vector_float3 {
 }
 
 func generate_random_normalized_vector() -> vector_float3 {
-/*    let rand = vector_float3.random(in: min...max)
-    let rand_sq = rand.x * rand.x + rand.y * rand.y + rand.z*rand.z
-    let rand_normal = rand / rand_sq.squareRoot()
-    return rand_normal */
     return generate_random_vector(min: 1, max: 1)
 }
 
@@ -37,11 +33,7 @@ class StarSimulation : NSObject {
     var _commandQueue: MTLCommandQueue!
     var _computePipeline : MTLComputePipelineState!
     var model: Int = 0
-    
-    var _updateBuffer = [MTLBuffer]()
-    
-    var _updateData = [NSData]()
-    
+
     var _currentBufferIndex: Int = 0
     
     var _positions = [MTLBuffer]()
@@ -69,8 +61,6 @@ class StarSimulation : NSObject {
     var halt: Bool = false // apparently this needs to be thread safe.
     var advanceIndex: Bool = false
     
-    //var nextModel: Bool = false
-    
     init(computeDevice: MTLDevice, config: SimulationConfig) {
         super.init()
         
@@ -80,10 +70,7 @@ class StarSimulation : NSObject {
         createMetalObjectsAndMemory()
         initalizeData()
     }
-    
-/*    init(computeDevice: MTLDevice, config: SimulationConfig, positionData: NSData, velocityData: NSData, forSimulationTime: CFAbsoluteTime) {
-    }
-*/
+
     func createMetalObjectsAndMemory() {
         let defaultLibrary : MTLLibrary = _device.makeDefaultLibrary()!
         let nbodySimulation : MTLFunction = defaultLibrary.makeFunction(name: "NBodySimulation")!
@@ -119,20 +106,9 @@ class StarSimulation : NSObject {
         params[0].damping = _config.damping
         params[0].softeningSqr = _config.softeningSqr
         params[0].numBodies = _config.numBodies
-        
-     //   params[0].block_begin = 0
-     //   params[0].block_end = min(_config.numBodies, block_size)
-        
-        // don't think this is needed...
-        let updateDataSize: Int = Int(_config.renderBodies) * MemoryLayout<vector_float3>.size
-        
-        for i in 0..<NumUpdateBuffersStored {
-            _updateBuffer.append(_device.makeBuffer(length: updateDataSize, options: .storageModeShared)!)
-            _updateBuffer[i].label = "Update Buffer" + String(i)
-        }
     }
     
-    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3, velocityOffset: vector_float3, rotation: vector_float3, flatten: Float, prescale : Float = 1, vrescale: Float = 1) {
+    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3, velocityOffset: vector_float3, rotation: vector_float3, flatten: Float, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0) {
         let pscale : Float = _config.clusterScale * prescale * 0.7 // might need to move this to the main "create a galaxy thing"
         let vscale : Float = _config.velocityScale * pscale * vrescale
         let inner : Float = 2.5 * pscale
@@ -172,7 +148,7 @@ class StarSimulation : NSObject {
             } else {
 
                 let nrpos = generate_random_normalized_vector()
-                //let position = nrpos * abs(generate_random_vector(min:inner, max: outer))
+                //let position = nrpos * abs(generate_random_vector(min:inner, max: outer)) // altenernate
                 let rpos = abs(generate_random_normalized_vector())
                 let position = nrpos * (inner + ((outer-inner) * rpos));
                 
@@ -203,16 +179,7 @@ class StarSimulation : NSObject {
                 velocity.y = position.z * flatten * axis.x - position.x * axis.z
                 velocity.z = position.x * axis.y - position.y * axis.x
      
-                /*     if ((position.x*position.x + position.y*position.y) > (inner * inner * 0.1)) {
-                 
-                 let radialvelocitysq = velocity.x*velocity.x * velocity.y*velocity.y // radial velocity doesn't really depend too much on where in the galaxy once > inner
-                 
-                 velocity.x *= 0.3 * inner / radialvelocitysq.squareRoot()
-                 velocity.y *= 0.3 * inner / radialvelocitysq.squareRoot()
-                 
-                 } */
-                
-                //velocity = velocity * (vector_float4(1,1,1,0) +  0.05 * vector_float4(generate_random_normalized_vector(), 0))
+                velocity = velocity * (vector_float4(1,1,1,0) +  vrandomness * vector_float4(generate_random_normalized_vector(), 0)) // add some randomness here
                 
                 velocities[i] = velocity * vscale
             }
@@ -294,30 +261,7 @@ class StarSimulation : NSObject {
             model += 1
         }
     }
-    /*
-    func randomMoveStars() {
-        let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
-//        let numBodies : Int = 4096
-        
-        for i in 0..<_config.numBodies {
-            
-            positions[Int(i)].x += Float.random(in: -0.01..<0.01)
-            positions[Int(i)].y += Float.random(in: -0.01..<0.01)
-            positions[Int(i)].z += Float.random(in: -0.01..<0.01)
-        }
-    }
 
-    func fillUpdateBufferWithPositionBuffer(buffer: MTLBuffer, commandBuffer: MTLCommandBuffer) {
-        
-        let blitEncoder = commandBuffer.makeBlitCommandEncoder()!
-        
-        blitEncoder.label = "Position Update Blit Encoder"
-        blitEncoder.pushDebugGroup("Position Update Blit Commands")
-        blitEncoder.copy(from: buffer, sourceOffset: 0, to: _updateBuffer[_currentBufferIndex], destinationOffset: 0, size: _updateBuffer[_currentBufferIndex].length)
-        blitEncoder.popDebugGroup()
-        blitEncoder.endEncoding()
-    }
-    */
     func getStablePositionBuffer1() -> MTLBuffer {
         return _positions[_oldestBufferIndex]
     }
@@ -330,9 +274,7 @@ class StarSimulation : NSObject {
         let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self)
         return Float(blocks[0].begin)/Float(_config.numBodies)
     }
-    
 
-    
     func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) {
         if (!halt) {
             if advanceIndex {
@@ -378,15 +320,7 @@ class StarSimulation : NSObject {
             }
 
             return
-            // testing only (no compute) return _positions[_oldBufferIndex]
         }
     }
-
-    //func runAsyncWithUpdateHandler
-    
-   /* func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) -> MTLBuffer {
-        return MTLBuffer!
-    }*/
-    
 }
 

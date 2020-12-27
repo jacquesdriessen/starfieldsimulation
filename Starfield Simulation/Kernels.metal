@@ -27,8 +27,6 @@ static float3 computeAcceleration(const float4 vsPosition,
     float s = vsPosition.w * invDist; // vsPostion equals to radius, assuming mass is radius^3.
     
     return r * s * s * s; // = mass * r (vector) / |r|^3
-    // temp - no acceleration
-    // return float3(0.0f, 0.0f, 0.0f);
 }
 
 kernel void NBodySimulation(device float4*           newPosition       [[ buffer(starComputeBufferIndexNewPosition) ]],
