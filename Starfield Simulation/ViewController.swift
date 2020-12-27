@@ -115,7 +115,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.01, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000320, simDuration: 100 /* dont think thtis was implemented */)
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.08, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000640, simDuration: 100 /* dont think thtis was implemented */) // this is fairly realistic (my opinion)
       //  _config = SimulationConfig(damping: 1, softeningSqr: 2*2*0.16, numBodies: 2*32768, clusterScale: 0.05, velocityScale: 25000, renderScale: 2*40, renderBodies: 16 /* not implemented */, simInterval: 2*2*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
-        _config = SimulationConfig(damping: 1, softeningSqr: 0.16, numBodies: 32768, clusterScale: 0.05, velocityScale: 25000, renderScale: 40, renderBodies: 16 /* not implemented */, simInterval: 0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
+        _config = SimulationConfig(damping: 1, softeningSqr: 0.128, numBodies: 32768, clusterScale: 0.035, velocityScale: 40000, renderScale: 40, renderBodies: 16 /* not implemented */, simInterval: 0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
 
         
         
@@ -167,6 +167,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
          let anchor = ARAnchor(transform: transform)
          session.add(anchor: anchor)
          }*/
+        
     }
     
     @objc

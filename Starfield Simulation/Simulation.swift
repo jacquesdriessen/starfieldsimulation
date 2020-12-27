@@ -108,9 +108,9 @@ class StarSimulation : NSObject {
         params[0].numBodies = _config.numBodies
     }
     
-    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3, velocityOffset: vector_float3, rotation: vector_float3, flatten: Float, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0) {
-        let pscale : Float = _config.clusterScale * prescale * 0.7 // might need to move this to the main "create a galaxy thing"
-        let vscale : Float = _config.velocityScale * pscale * vrescale
+    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3, velocityOffset: vector_float3, rotation: vector_float3, flatten: Float, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1) {
+        let pscale : Float = _config.clusterScale * prescale
+        let vscale : Float = _config.velocityScale * pscale * vrescale * 0.10
         let inner : Float = 2.5 * pscale
         let outer : Float = 4.0 * pscale
         var total_mass: Float = 0
@@ -170,22 +170,35 @@ class StarSimulation : NSObject {
                     let axis_sq = axis.x*axis.x + axis.y*axis.y + axis.z * axis.z
                     
                     axis = axis / axis_sq.squareRoot()
+                    
                 }
-                
+
                 var velocity = vector_float4(0,0,0,0)
+
+                // flatten
+                positions[i].z *= flatten // flatten galaxiy.
+                
+                let nposition = position / sqrt(position.x * position.x + position.y * position.y + position.z * position.z) // used normalized positions for speed, as speed is approximately independent on distance from center.
                 
                 // cross product
-                velocity.x = position.y * axis.z - position.z * flatten * axis.y
-                velocity.y = position.z * flatten * axis.x - position.x * axis.z
-                velocity.z = position.x * axis.y - position.y * axis.x
+                velocity.x = nposition.y * axis.z - nposition.z * axis.y
+                velocity.y = nposition.z * axis.x - nposition.x * axis.z
+                velocity.z = nposition.x * axis.y - nposition.y * axis.x
      
                 velocity = velocity * (vector_float4(1,1,1,0) +  vrandomness * vector_float4(generate_random_normalized_vector(), 0)) // add some randomness here
                 
+
                 velocities[i] = velocity * vscale
+
+                // squeeze fakes our way into a spiral galaxy, adjust velocities + create a bar.
+                velocities[i].x /= squeeze
+                velocities[i].y *= squeeze
+
+                if ((1 - scalar) < 0.5) {
+                    // squeeze - create a bar in the middle to make for a better start.
+                    positions[i].y /= squeeze
+                }
             }
-            
-            // flatten
-            positions[i].z *= flatten // flatten galaxiy.
             
             // rotate
             positions[i] = rotation_matrix * positions[i]
@@ -212,41 +225,41 @@ class StarSimulation : NSObject {
         switch model {
         case 0: // one galaxy
             newSplit = 0
-            makegalaxy(first:0, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, squeeze: 2)
         case 1: // small & big galaxy
             newSplit = _config.numBodies/8
-            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0/*.05*/,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, prescale: 0.125)
+            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0/*.05*/,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, prescale: 0.125, squeeze: 2)
             makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 2: // make them collide
             newSplit = 0
         case 3: // equal galaxies, parallel
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 4: // make them collide
             newSplit = 0
         case 5:// equal galaxies / parallel / opposite rotation
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,-Float.pi/2,Float.pi/2), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,-Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 6: // make them collide
             newSplit = 0
         case 7: // equal galaxies, same plane
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
         case 8: // make them collide
             newSplit = 0
         case 9: // equal galaxies, same plane / opposite rotation
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,Float.pi), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,Float.pi), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
         case 10: // make them collide
             newSplit = 0
         case 11: // equal galaxies / different orientations
             newSplit = _config.numBodies/2
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05)
-            makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,-0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, -0.25), velocityOffset: vector_float3(0,0,0), rotation: vector_float3(0,0,0), flatten: 0.05, squeeze: 2)
+            makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, -0.25), velocityOffset: vector_float3(0,0,-0), rotation: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
         case 12: // make them collide
             newSplit = 0
         default:
