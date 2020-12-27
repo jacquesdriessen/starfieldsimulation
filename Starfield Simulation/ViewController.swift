@@ -29,6 +29,8 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     var _terminateAllSimulations = false
     
+    var pinch : CGFloat = 0
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -190,21 +192,21 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         guard gestureRecognize.view != nil else {
             return
         }
-        if gestureRecognize.state == .ended {
-            switch _simulation.track {
-                case 0:
-                    _simulation.track = 1
-                case 1:
-                    _simulation.track = 2
-                case 2:
-                    _simulation.track = 3
-                case 3:
-                    _simulation.track = 0
-                default:
-                    _simulation.track = 0
-            }
+        
+        if gestureRecognize.state == .began {
+            pinch = gestureRecognize.scale
         }
         
+        if gestureRecognize.state == .ended {
+            if (gestureRecognize.scale > pinch) {
+                _simulation.track = (_simulation.track + 1) % 4
+            } else {
+                _simulation.track = (_simulation.track - 1)
+                if _simulation.track < 0 {
+                    _simulation.track = 3
+                }
+            }
+        }
     }
 
     
