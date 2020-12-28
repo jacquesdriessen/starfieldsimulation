@@ -60,8 +60,7 @@ class StarSimulation : NSObject {
  
 
     var blockBegin : UInt = 0
-    var currentSplit: UInt32 = 0
-    var newSplit: UInt32 = 0
+    var split: UInt32 = 0
     var trackSplit: UInt32 = 0
     
     var _simulationTime: CFAbsoluteTime = 0
@@ -274,53 +273,53 @@ class StarSimulation : NSObject {
                 
         switch model {
         case 0: // one galaxy
-            newSplit = 0
+            split = 0
             trackSplit = _config.numBodies
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.05, squeeze: 2)
         case 1: // small & big galaxy
-            newSplit = _config.numBodies/8
-            trackSplit = newSplit
+            split = _config.numBodies/8
+            trackSplit = split
             makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
             makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05)
         case 2: // make them collide
-            newSplit = 0
+            split = 0
         case 3: // equal galaxies, parallel
-            newSplit = _config.numBodies/2
-            trackSplit = newSplit
+            split = _config.numBodies/2
+            trackSplit = split
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 4: // make them collide
-            newSplit = 0
+            split = 0
         case 5:// equal galaxies / parallel / opposite rotation
-            newSplit = _config.numBodies/2
-            trackSplit = newSplit
+            split = _config.numBodies/2
+            trackSplit = split
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,-Float.pi/2,0), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05)
         case 6: // make them collide
-            newSplit = 0
+            split = 0
         case 7: // equal galaxies, same plane
-            newSplit = _config.numBodies/2
-            trackSplit = newSplit
+            split = _config.numBodies/2
+            trackSplit = split
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), flatten: 0.05)
         case 8: // make them collide
-            newSplit = 0
+            split = 0
         case 9: // equal galaxies, same plane / opposite rotation
-            newSplit = _config.numBodies/2
-            trackSplit = newSplit
+            split = _config.numBodies/2
+            trackSplit = split
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,0,Float.pi), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,0,0), flatten: 0.05)
         case 10: // make them collide
-            newSplit = 0
+            split = 0
         case 11: // equal galaxies / different orientations
-            newSplit = _config.numBodies/2
-            trackSplit = newSplit
+            split = _config.numBodies/2
+            trackSplit = split
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
             makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05, squeeze: 2)
         case 12: // make them collide
-            newSplit = 0
+            split = 0
         default:
-            newSplit = 0
+            split = 0
             trackSplit = _config.numBodies
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.25)
         }
@@ -347,119 +346,121 @@ class StarSimulation : NSObject {
     }
 
     func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) {
-        if (!halt) {
-            // could be done smarter, e.g. make sure we only wait if we need to advance the frame, now it just waits advancing + pushing stuff to the gpu every compute cyle, but otherwise we get artefacts (particles not advancing, because of advancing frames before computations have finished.
-            let _ = blockSemaphore.wait(timeout: DispatchTime.distantFuture)
-
-            if advanceIndex {
-                advanceIndex = false
-                
-                let tmpIndex = _oldestBufferIndex
-                _oldestBufferIndex = _oldBufferIndex
-                _oldBufferIndex = _newBufferIndex
-                _newBufferIndex = tmpIndex
-                
-                _simulationTime += CFAbsoluteTime(_config.simInterval)
-                
-                currentSplit = newSplit // only apply new split at beginning of an entire block (as otherwise part of the particles will have only partially calculated stuff)
-            }
-
-
-            if (interact)
-            {
+        // could be done smarter, e.g. make sure we only wait if we need to advance the frame, now it just waits advancing + pushing stuff to the gpu every compute cyle, but otherwise we get artefacts (particles not advancing, because of advancing frames before computations have finished.
+        let _ = blockSemaphore.wait(timeout: DispatchTime.distantFuture)
+        
+        
+        if advanceIndex {
+            advanceIndex = false
+            
+            let tmpIndex = _oldestBufferIndex
+            _oldestBufferIndex = _oldBufferIndex
+            _oldBufferIndex = _newBufferIndex
+            _newBufferIndex = tmpIndex
+            
+            _simulationTime += CFAbsoluteTime(_config.simInterval)
+            
+            let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self) // ensure we start at the beginning with compute!
+            blocks[0].split = split
+            blocks[0].halt = halt
+            
+            if (interact) {
                 // interact with (both if we have 2) galaxies
                 var translation = matrix_identity_float4x4
                 translation.columns.3.z = -0.01 // Create a transform with a translation of 0.01 meters behindthe camera
                 let rightInFrontOfCamera = simd_mul(camera, translation)
-
+                
                 _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].x = rightInFrontOfCamera.columns.3.x
                 _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].y = rightInFrontOfCamera.columns.3.y
                 _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].z = rightInFrontOfCamera.columns.3.z
                 _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].w = 23 // roughly 10% of the weight of the entire rest of the simulation combined
-
-                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].x = rightInFrontOfCamera.columns.3.x
-                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].y = rightInFrontOfCamera.columns.3.y
-                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].z = rightInFrontOfCamera.columns.3.z
-                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].w = 40
+                
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].x = rightInFrontOfCamera.columns.3.x
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].y = rightInFrontOfCamera.columns.3.y
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].z = rightInFrontOfCamera.columns.3.z
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].w = 40
             } else {
-                        _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].w = 0
-                        _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(currentSplit)].w = 0
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].w = 0
+                _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].w = 0
             }
-            
-            let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self) // ensure we start at the beginning with compute!
-            blocks[0].begin = UInt32(blockBegin) // the block we want to calculate
-            blocks[0].split = currentSplit
-            
-            commandBuffer.pushDebugGroup("Simulation")
-            
-            commandBuffer.addCompletedHandler{ [weak self] commandBuffer in
-                if let strongSelf = self {
-                    strongSelf.blockSemaphore.signal()
-                }
-            }
-            
             
             let trackSpeed : Float = 0.1
             switch(track) {
-                case 0: do { // no tracking
+            case 0:
+                do { // no tracking
                     self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = vector_float4(0,0,0,0)
                     self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = vector_float4(0,0,0,0)
                 }
-                case 1: do {
+            case 1:
+                do {
                     let black_hole_position = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1]
                     let black_hole_velocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1]
                     
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
                 }
-                case 2:do {
+            case 2:
+                do {
                     let black_hole_position = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1]
                     let black_hole_velocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1]
                     
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
                 }
-                case 3: do {
+            case 3:
+                do {
                     let black_hole_position = 0.5 * (_positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] + _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1])
                     let black_hole_velocity = 0.5 * (_velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] +
-                        _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1])
+                                                        _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1])
                     
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
                 }
-
-                default: do { // no tracking
+                
+            default:
+                do { // no tracking
                     self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = vector_float4(0,0,0,0)
                     self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = vector_float4(0,0,0,0)
                 }
             }
-            
-            let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
-            computeEncoder.setComputePipelineState(_computePipeline)
-            
-            computeEncoder.setBuffer(_positions[_newBufferIndex], offset: 0, index: Int(starComputeBufferIndexNewPosition.rawValue))
-            computeEncoder.setBuffer(_velocities[_newBufferIndex], offset: 0, index: Int(starComputeBufferIndexNewVelocity.rawValue))
-            computeEncoder.setBuffer(_positions[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldPosition.rawValue))
-            computeEncoder.setBuffer(_velocities[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldVelocity.rawValue))
-            computeEncoder.setBuffer(_simulationParams, offset: 0, index: Int(starComputeBufferIndexParams.rawValue))
-            computeEncoder.setBuffer(_blocks[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexBlock.rawValue))
-            computeEncoder.setBuffer(_tracking[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexTracking.rawValue))
-            computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // duplicate
-            computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
-            
-            computeEncoder.endEncoding()
-            commandBuffer.popDebugGroup()
-            
-            if (UInt32(blockBegin) + block_size) >= _config.numBodies { // commit frame
-                blockBegin = 0
-                advanceIndex = true
-
-               } else { // go to next block
-                blockBegin = blockBegin + UInt(block_size)
-            }
-
-            return
         }
+        
+        let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self) // ensure we start at the beginning with compute!
+        blocks[0].begin = UInt32(blockBegin) // the block we want to calculate
+        
+        commandBuffer.pushDebugGroup("Simulation")
+        
+        commandBuffer.addCompletedHandler{ [weak self] commandBuffer in
+            if let strongSelf = self {
+                strongSelf.blockSemaphore.signal()
+            }
+        }
+        
+        let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
+        computeEncoder.setComputePipelineState(_computePipeline)
+        
+        computeEncoder.setBuffer(_positions[_newBufferIndex], offset: 0, index: Int(starComputeBufferIndexNewPosition.rawValue))
+        computeEncoder.setBuffer(_velocities[_newBufferIndex], offset: 0, index: Int(starComputeBufferIndexNewVelocity.rawValue))
+        computeEncoder.setBuffer(_positions[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldPosition.rawValue))
+        computeEncoder.setBuffer(_velocities[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldVelocity.rawValue))
+        computeEncoder.setBuffer(_simulationParams, offset: 0, index: Int(starComputeBufferIndexParams.rawValue))
+        computeEncoder.setBuffer(_blocks[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexBlock.rawValue))
+        computeEncoder.setBuffer(_tracking[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexTracking.rawValue))
+        computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // duplicate
+        computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
+        
+        computeEncoder.endEncoding()
+        commandBuffer.popDebugGroup()
+        
+        if (UInt32(blockBegin) + block_size) >= _config.numBodies { // commit frame
+            blockBegin = 0
+            advanceIndex = true
+            
+        } else { // go to next block
+            blockBegin = blockBegin + UInt(block_size)
+        }
+        
+        return
     }
 }
 

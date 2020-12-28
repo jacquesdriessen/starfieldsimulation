@@ -21,16 +21,17 @@ typedef enum StarComputeBufferIndex
 
 typedef struct StarSimParams
 {
-    float  timestep;
-    float  damping;
-    float  softeningSqr;
-    unsigned int numBodies;
+    float           timestep;
+    float           damping;
+    float           softeningSqr;
+    unsigned int    numBodies;
 } StarSimParams;
 
 typedef struct StarBlock
 {
-    unsigned int begin;
-    unsigned int split;
+    unsigned int    begin;
+    unsigned int    split;
+    bool            halt;
 } StarBlock;
 
 typedef struct Tracking

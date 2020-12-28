@@ -144,8 +144,16 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             return
         }
         
+        print("double tap")
+        
+        if gestureRecognize.state == .began {
+            print("double tap began")
+        }
+        
         if gestureRecognize.state == .ended {
             renderer.nightSkyMode = !renderer.nightSkyMode
+            
+            print("double tap ended")
         }
     }
     
@@ -155,8 +163,16 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             return
         }
         
+        print("tap")
+        
+        if gestureRecognize.state == .began {
+            print("tap began")
+        }
+        
         if gestureRecognize.state == .ended {
             _simulation.halt = !_simulation.halt // pause
+            
+            print("tap ended")
         }
     }
 
@@ -166,10 +182,17 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             return
         }
         
+        print("long press")
+        
         _simulation.interact = true
+        
+        if gestureRecognize.state == .began {
+            print("long press began")
+        }
         
         if gestureRecognize.state == .ended {
             _simulation.interact = false
+            print("long press ended")
         }
     }
 
@@ -179,7 +202,17 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         guard gestureRecognize.view != nil else {
             return
         }
+        
+        print("swipe")
+        
+        if gestureRecognize.state == .began {
+            print("swipe began")
+        }
+        
+        print(gestureRecognize.direction)
         if gestureRecognize.state == .ended {
+            
+            print("swipe ended")
             // make sure we are not processing stuff on the gpu before we modify data.
             let _ = renderer.inFlightSemaphore.wait(timeout: DispatchTime.distantFuture)
             _simulation.initalizeData()
@@ -193,11 +226,16 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             return
         }
         
+        print("pinch")
+        
         if gestureRecognize.state == .began {
+            print("pinch began")
             pinch = gestureRecognize.scale
         }
         
         if gestureRecognize.state == .ended {
+            print("pinch ended")
+            
             if (gestureRecognize.scale > pinch) {
                 _simulation.track = (_simulation.track + 1) % 4
             } else {

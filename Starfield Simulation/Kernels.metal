@@ -85,9 +85,17 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
     if (oldPosition[threadGlobal].w < 0) { // allow for negative mass, so we can "push things away"
         acceleration = - acceleration;
     }
-    currentVelocity.xyz += acceleration * params.timestep - tracking.velocity.xyz;
-    currentVelocity.xyz *= params.damping;
-    currentPosition.xyz += currentVelocity.xyz * params.timestep - tracking.position.xyz;
+    
+    if (!block.halt) { // don't simulate whilst on halt
+        currentVelocity.xyz += acceleration * params.timestep;
+        currentVelocity.xyz *= params.damping;
+        currentPosition.xyz += currentVelocity.xyz * params.timestep;
+    }
+    
+    // do track though, no matter what.
+    currentVelocity.xyz -= tracking.velocity.xyz;
+    currentPosition.xyz -= tracking.position.xyz;
+    
     newPosition[threadGlobal] = currentPosition;
     newVelocity[threadGlobal] = currentVelocity;
 
