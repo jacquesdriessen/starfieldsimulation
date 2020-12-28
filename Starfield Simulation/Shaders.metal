@@ -41,7 +41,8 @@ vertex ImageColorInOut capturedImageVertexTransform(ImageVertex in [[stage_in]])
 // Captured image fragment function
 fragment float4 capturedImageFragmentShader(ImageColorInOut in [[stage_in]],
                                             texture2d<float, access::sample> capturedImageTextureY [[ texture(kTextureIndexY) ]],
-                                            texture2d<float, access::sample> capturedImageTextureCbCr [[ texture(kTextureIndexCbCr) ]]) {
+                                            texture2d<float, access::sample> capturedImageTextureCbCr [[ texture(kTextureIndexCbCr) ]],
+                                            constant float & daylight  [[ buffer(kTextureIndexDayLight)]]) {
     
     constexpr sampler colorSampler(mip_filter::linear,
                                    mag_filter::linear,
@@ -59,7 +60,7 @@ fragment float4 capturedImageFragmentShader(ImageColorInOut in [[stage_in]],
                           capturedImageTextureCbCr.sample(colorSampler, in.texCoord).rg, 1.0);
     
     // Return converted RGB color
-    return ycbcrToRGBTransform * ycbcr;
+    return daylight*ycbcrToRGBTransform * ycbcr;
 }
 
 typedef struct
@@ -100,7 +101,7 @@ vertex StarColorInOut starVertexShader(
 
     out.radius = abs(positions1[vertexID].w); //positions[vertexID].w holds radius of the star, if negative, just means negative mass, not radius!!
     
-    out.pointSize = out.radius * 10 / distance((modelViewMatrix * position).xyz, out.position.xyz);
+    out.pointSize = out.radius * sharedUniforms.starSize / distance((modelViewMatrix * position).xyz, out.position.xyz);
     
     return out;
 }

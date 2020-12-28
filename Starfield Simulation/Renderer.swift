@@ -62,7 +62,7 @@ class Renderer {
     //var positionsBuffer: MTLBuffer!
     var currentBufferIndex: Int = 0
     var _renderScale: Float = 1
-    var nightSkyMode: Bool = false
+    var dayLightMode: Float = 1
     
     // Captured image texture cache
     var capturedImageTextureCache: CVMetalTextureCache!
@@ -84,6 +84,9 @@ class Renderer {
     
     // Flag for viewport size changes
     var viewportSizeDidChange: Bool = false
+    
+    // starting starsize
+    var starSize: Float = 5
        
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider, numBodies: Int) {
         self.session = session
@@ -180,9 +183,7 @@ class Renderer {
                 
                 renderEncoder.label = "MyRenderEncoder"
                 
-                if !nightSkyMode {
-                    drawCapturedImage(renderEncoder: renderEncoder)
-                }
+                drawCapturedImage(renderEncoder: renderEncoder)
                 
                 drawStars(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer1: positionsBuffer1, positionsBuffer2: positionsBuffer2, interpolation: interpolation)
                 
@@ -381,6 +382,7 @@ class Renderer {
                      simd_float4(0,0,_renderScale,0),
                      simd_float4(0,0,0,1))
         uniforms.pointee.projectionMatrix = frame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
+        uniforms.pointee.starSize = starSize
     }
 
     func updateCapturedImageTextures(frame: ARFrame) {
@@ -442,6 +444,7 @@ class Renderer {
         // Set any textures read/sampled from our render pipeline
         renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(textureY), index: Int(kTextureIndexY.rawValue))
         renderEncoder.setFragmentTexture(CVMetalTextureGetTexture(textureCbCr), index: Int(kTextureIndexCbCr.rawValue))
+        renderEncoder.setFragmentBytes(&dayLightMode, length: MemoryLayout<Float>.size, index: Int(kTextureIndexDayLight.rawValue))
         
         // Draw each submesh of our mesh
         renderEncoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
@@ -476,4 +479,29 @@ class Renderer {
         
         renderEncoder.popDebugGroup()
     }
+    
+    func increaseStarSize() {
+        if starSize < 10 {
+                starSize *= 1.25 // increase size
+        }
+    }
+    
+    func decreaseStarSize() {
+        if starSize > 2.5 {
+            starSize *= 1/1.25 // decrease size
+        }
+    }
+    
+    func decreaseCameraExposure() {
+        if dayLightMode > 0 {
+            dayLightMode -= 0.1
+        }
+    }
+    
+    func increaseCameraExposure() {
+        if dayLightMode < 1 {
+            dayLightMode += 0.1
+        }
+    }
+    
 }

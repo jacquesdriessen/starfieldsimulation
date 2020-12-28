@@ -141,7 +141,19 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         }
         
         if gestureRecognize.state == .ended {
+            let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates -100...100
+            let y = 200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height  // coordinates -100...100
             
+            if x < -80 && y > 80 { // unambiguous bottom left corner
+                renderer.decreaseStarSize()
+            } else if x > 80 && y > 80 { // unambiguous bottom right corner
+                renderer.increaseStarSize()
+            } else if x < -80 && y < -80 { // unambiguous top left corner
+                renderer.decreaseCameraExposure()
+            } else if x > 80 && y < -80 { // unambiguous top right corner
+                renderer.increaseCameraExposure()
+            }
+
             print("double tap ended")
         }
     }
@@ -170,15 +182,24 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             } else if x > 80 && abs(y) < 50 { // unambiguous right
                 // make sure we are not processing stuff on the gpu before we modify data.
                 _simulation.nextmodel(semaphore: renderer.inFlightSemaphore)
-            } else if y < -80 && abs(x) < 50 { // unambigous up
+            } else if y < -80 && abs(x) < 50 { // unambigous top
                 // make sure we are not processing stuff on the gpu before we modify data.
                 _simulation.collide(semaphore: renderer.inFlightSemaphore)
-            } else if y > 80 && abs(x) < 50 { // unambigous down
+            } else if y > 80 && abs(x) < 50 { // unambigous bottom
                 // make sure we are not processing stuff on the gpu before we modify data.
                 _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
             } else if abs(x) < 50 && abs(y) < 50 { // unambigous middle}
-                renderer.nightSkyMode = !renderer.nightSkyMode
+                //renderer.dayLightMode = 1 - renderer.dayLightMode
+            } else if x < -80 && y > 80 { // unambiguous bottom left corner
+                renderer.decreaseStarSize()
+            } else if x > 80 && y > 80 { // unambiguous bottom right corner
+                renderer.increaseStarSize()
+            } else if x < -80 && y < -80 { // unambiguous top left corner
+                renderer.decreaseCameraExposure()
+            } else if x > 80 && y < -80 { // unambiguous top right corner
+                renderer.increaseCameraExposure()
             }
+            
             print("tap ended", x, y)
         }
     }
@@ -190,8 +211,22 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         }
         
         print("long press")
+
+
+        let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates -100...100
+        let y = 200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height  // coordinates -100...100
         
-        _simulation.interact = true
+        if x < -80 && y > 80 { // unambiguous bottom left corner
+            renderer.decreaseStarSize()
+        } else if x > 80 && y > 80 { // unambiguous bottom right corner
+            renderer.increaseStarSize()
+        } else if x < -80 && y < -80 { // unambiguous top left corner
+            renderer.decreaseCameraExposure()
+        } else if x > 80 && y < -80 { // unambiguous top right corner
+            renderer.increaseCameraExposure()
+        } else {
+            _simulation.interact = true
+        } 
         
         if gestureRecognize.state == .began {
             print("long press began")

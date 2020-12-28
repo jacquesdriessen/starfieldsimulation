@@ -32,7 +32,8 @@ typedef enum VertexAttributes {
 typedef enum TextureIndices {
     kTextureIndexColor    = 0,
     kTextureIndexY        = 1,
-    kTextureIndexCbCr     = 2
+    kTextureIndexCbCr     = 2,
+    kTextureIndexDayLight = 3
 } TextureIndices;
 
 // Structure shared between shader and C code to ensure the layout of shared uniform data accessed in
@@ -41,13 +42,8 @@ typedef struct {
     // Camera Uniforms
     matrix_float4x4 projectionMatrix;
     matrix_float4x4 viewMatrix;
+    float           starSize;
 } SharedUniforms;
-
-// Structure shared between shader and C code to ensure the layout of instance uniform data accessed in
-//    Metal shaders matches the layout of uniform data set in C code
-typedef struct {
-    matrix_float4x4 modelMatrix;
-} InstanceUniforms;
 
 typedef enum StarRenderBufferIndex
 {
