@@ -328,19 +328,19 @@ class StarSimulation : NSObject {
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, squeeze: 2)
         case 2: // small & big galaxy
             makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
-            makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05)
+            makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05, squeeze: 2)
         case 3: // equal galaxies, parallel
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
         case 4:// equal galaxies / parallel / opposite rotation
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,-Float.pi/2,0), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05, squeeze: 2)
         case 5: // equal galaxies, same plane
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), flatten: 0.05)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), flatten: 0.05, squeeze: 2)
         case 6: // equal galaxies, same plane / opposite rotation
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,0,Float.pi), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,0,0), flatten: 0.05)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,0,0), flatten: 0.05, squeeze: 2)
         case 7: // equal galaxies / different orientations
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
             makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05, squeeze: 2)
@@ -375,6 +375,7 @@ class StarSimulation : NSObject {
             if advanceIndex {
                 advanceIndex = false
                 
+              
                 let tmpIndex = _oldestBufferIndex
                 _oldestBufferIndex = _oldBufferIndex
                 _oldBufferIndex = _newBufferIndex
@@ -389,6 +390,16 @@ class StarSimulation : NSObject {
                 let params = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self)
                 params[0].timestep = _config.simInterval * (speed/100)
                 params[0].gravity = (gravity/100)
+                
+                let date = Date()
+                let calendar = Calendar.current
+                let seconds = calendar.component(.second, from: date)
+                
+                if (seconds < 30) {// alternate damping every 30 seconds, so the total energy stays the same, but it makes the results look cooler to have damping.
+                    params[0].damping = _config.damping
+                } else {
+                    params[0].damping = 1/_config.damping
+                }
                 
                 if (interact) {
                     // interact with (both if we have 2) galaxies

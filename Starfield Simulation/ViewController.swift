@@ -31,6 +31,9 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     var pinch : CGFloat = 0
     
+    var horizontalPan = false
+    var verticalPan = false
+    
    override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -58,9 +61,10 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         view.addGestureRecognizer(tapGesture)
         tapGesture.numberOfTapsRequired = 1
         tapGesture.require(toFail: doubleTapGesture)
-        
+   
+    // need to figure out a way without long press, this confuses things
         let longPressGesture = UILongPressGestureRecognizer (target: self, action: #selector(ViewController.handleLongPress(gestureRecognize:)))
-        view.addGestureRecognizer(longPressGesture)
+ //       view.addGestureRecognizer(longPressGesture)
         longPressGesture.minimumPressDuration = 1
         
         let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(ViewController.handlePinch(gestureRecognize:)))
@@ -110,7 +114,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.01, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000320, simDuration: 100 /* dont think thtis was implemented */)
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.08, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000640, simDuration: 100 /* dont think thtis was implemented */) // this is fairly realistic (my opinion)
       //  _config = SimulationConfig(damping: 1, softeningSqr: 2*2*0.16, numBodies: 2*32768, clusterScale: 0.05, velocityScale: 25000, renderScale: 2*40, renderBodies: 16 /* not implemented */, simInterval: 2*2*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
-        _config = SimulationConfig(damping: 1, softeningSqr: 0.128, numBodies: 32768, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
+        _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 32768, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
         
         // Configure the renderer to draw to the view
         renderer = Renderer(session: session, metalDevice: _view.device!, renderDestination: _view, numBodies: Int(_config.numBodies))
@@ -283,18 +287,46 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         }
         
         print("pan")
+
+        let x : Float = Float(200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width) // coordinates -100...100
+        let y : Float = Float(200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height)  // coordinates -100...100
         
-        _simulation.speed = min(max(Float(-200.0),_simulation.speed + 0.01*Float(gestureRecognize.translation(in: gestureRecognize.view!.superview!).x)), Float(200.0)) // keep between -200 and 200%
+        if horizontalPan {
+            /*_simulation.speed = min(max(Float(-200.0),_simulation.speed + 0.01*Float(gestureRecognize.translation(in: gestureRecognize.view!.superview!).x)), Float(200.0)) // keep between -200 and 200% */
+            _simulation.speed = 1.5 * x // keep between -150% and + 150%
+            print("speed" + String(_simulation.speed))
+        }
+
+        if verticalPan {
+            _simulation.gravity = 2 * 0.5*(y+100) // keep between 0 and 200%
+            print("gravity " + String(_simulation.gravity))
+            
+            /* _simulation.gravity = min(max(Float(0.0),_simulation.gravity - 0.01*Float(gestureRecognize.translation(in: gestureRecognize.view!.superview!).y)), Float(500.0)) // keep between 0 and 500% */
+        }
         
-        _simulation.gravity = min(max(Float(0.0),_simulation.gravity - 0.01*Float(gestureRecognize.translation(in: gestureRecognize.view!.superview!).y)), Float(500.0)) // keep between 0 and 500%
-        
-        print(_simulation.gravity)
         
         if gestureRecognize.state == .began {
+
+            if (abs(x) < 25) { // only start if we purposely start from the middle
+                verticalPan = true
+            } else {
+                verticalPan = false
+            }
+
+            if (abs(y) < 25) { // only start if we purposely start from the middle
+                horizontalPan = true
+            } else {
+                horizontalPan = false
+            }
+
+            
             print("pan began")
         }
         
         if gestureRecognize.state == .ended {
+            horizontalPan = false
+            verticalPan = false
+            
             print("pan ended")
         }
     }

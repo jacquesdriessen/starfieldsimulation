@@ -88,7 +88,8 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
     
     //simulation
     currentVelocity.xyz += params.gravity * acceleration * params.timestep;
-    currentVelocity.xyz *= params.damping;
+    currentVelocity.xyz *= params.damping; // this is tricky, assumption it's semi stationary.
+    
     currentPosition.xyz += currentVelocity.xyz * params.timestep;
  
     // tracking
