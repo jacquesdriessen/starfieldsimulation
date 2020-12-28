@@ -8,7 +8,6 @@
 import Metal
 import MetalKit
 import ARKit
-import UIKit
 
 @IBDesignable class MyButton: UIButton
 {
