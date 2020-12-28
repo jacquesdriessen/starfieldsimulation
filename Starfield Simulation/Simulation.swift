@@ -38,7 +38,7 @@ class StarSimulation : NSObject {
     var _device: MTLDevice!
     var _commandQueue: MTLCommandQueue!
     var _computePipeline : MTLComputePipelineState!
-    let models: Int = 7
+    let models: Int = 8
     var model: Int = 0
     
     var _currentBufferIndex: Int = 0
@@ -62,7 +62,7 @@ class StarSimulation : NSObject {
 
     var blockBegin : UInt = 0
     var split: UInt32 = 0
-    var trackSplit: UInt32 = 0
+    var collide: Bool = false
     
     var _simulationTime: CFAbsoluteTime = 0
     
@@ -159,7 +159,7 @@ class StarSimulation : NSObject {
         return x_product
     }
     
-    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3 = vector_float3(0,0,0), velocityOffset: vector_float3 = vector_float3(0,0,0), axis: vector_float3 = vector_float3(0,0,0), flatten: Float = 1, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1) {
+    func makegalaxy(first: Int, last: Int, positionOffset: vector_float3 = vector_float3(0,0,0), velocityOffset: vector_float3 = vector_float3(0,0,0), axis: vector_float3 = vector_float3(0,0,0), flatten: Float = 1, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1, collision_enabled: Bool = false) {
         let pscale : Float = _config.clusterScale * prescale
         let vscale : Float = _config.velocityScale * pscale * vrescale
         let inner : Float = 2.5 * pscale
@@ -173,7 +173,6 @@ class StarSimulation : NSObject {
         let velocity_transformation = rightInFrontOfCamera * translate(translation: velocityOffset * _config.clusterScale * _config.velocityScale) * rotation_matrix
         
         split = UInt32(first) // split will always be right before the "last galaxy".
-        trackSplit = UInt32(first)
         
         _oldBufferIndex = 0
         _newBufferIndex = 1
@@ -183,6 +182,7 @@ class StarSimulation : NSObject {
         advanceIndex = true // make sure we start calculations from the beginning.
         
         track = 0 // stop tracking
+        collide = collision_enabled
         
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -275,7 +275,7 @@ class StarSimulation : NSObject {
             semaphore!.wait()
         }
         
-        split = 0
+        collide = true
         
         if semaphore != nil {
             semaphore!.signal()
@@ -287,7 +287,7 @@ class StarSimulation : NSObject {
             semaphore!.wait()
         }
         
-        split = trackSplit
+        collide = false
         
         if semaphore != nil {
             semaphore!.signal()
@@ -318,8 +318,10 @@ class StarSimulation : NSObject {
         
         // when adding things, make sure we update "models" in the var declarion, which holds the total number, e.g. the last (as we start from 0) = models-1
         switch model {
-        case 0: // one galaxy
+        case 0: // one flat galaxy
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.05, squeeze: 2)
+        case 1: // one round odd galaxy
+            makegalaxy(first:0, last: Int(_config.numBodies) - 1, squeeze: 2)
         case 2: // small & big galaxy
             makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
             makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05)
@@ -378,6 +380,8 @@ class StarSimulation : NSObject {
             let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self) // ensure we start at the beginning with compute!
             blocks[0].split = split
             blocks[0].halt = halt
+            blocks[0].collide = collide
+            print(collide)
             
             if (interact) {
                 // interact with (both if we have 2) galaxies
@@ -416,17 +420,17 @@ class StarSimulation : NSObject {
                 }
             case 2:
                 do {
-                    let black_hole_position = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1]
-                    let black_hole_velocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1]
+                    let black_hole_position = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1]
+                    let black_hole_velocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1]
                     
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
                 }
             case 3:
                 do {
-                    let black_hole_position = 0.5 * (_positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] + _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1])
+                    let black_hole_position = 0.5 * (_positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] + _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1])
                     let black_hole_velocity = 0.5 * (_velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] +
-                                                        _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.trackSplit) - 1])
+                                                        _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1])
                     
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
                     _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works

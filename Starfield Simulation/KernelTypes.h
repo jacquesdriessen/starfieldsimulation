@@ -32,6 +32,7 @@ typedef struct StarBlock
     unsigned int    begin;
     unsigned int    split;
     bool            halt;
+    bool            collide;
 } StarBlock;
 
 typedef struct Tracking

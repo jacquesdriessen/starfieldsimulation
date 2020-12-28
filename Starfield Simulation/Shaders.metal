@@ -101,7 +101,7 @@ vertex StarColorInOut starVertexShader(
 
     out.radius = abs(positions1[vertexID].w); //positions[vertexID].w holds radius of the star, if negative, just means negative mass, not radius!!
     
-    out.pointSize = out.radius * 2.5 / distance((modelViewMatrix * position).xyz, out.position.xyz);
+    out.pointSize = out.radius * 5 / distance((modelViewMatrix * position).xyz, out.position.xyz);
     
     return out;
 }

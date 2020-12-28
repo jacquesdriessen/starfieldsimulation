@@ -50,7 +50,7 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
     
     const float softeningSqr = params.softeningSqr;
     
-    const uint split = block.split;
+    const uint split = block.collide? params.numBodies : block.split;
     
     bool partition = (threadGlobal < split) ? 0 : 1;
     const uint particles = (threadGlobal < split) ? split : params.numBodies - split;
