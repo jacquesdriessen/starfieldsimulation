@@ -38,8 +38,9 @@ class StarSimulation : NSObject {
     var _device: MTLDevice!
     var _commandQueue: MTLCommandQueue!
     var _computePipeline : MTLComputePipelineState!
+    let models: Int = 7
     var model: Int = 0
-
+    
     var _currentBufferIndex: Int = 0
     
     var _positions = [MTLBuffer]()
@@ -171,6 +172,9 @@ class StarSimulation : NSObject {
         let position_transformation = rightInFrontOfCamera * translate(translation: positionOffset) * rotation_matrix
         let velocity_transformation = rightInFrontOfCamera * translate(translation: velocityOffset * _config.clusterScale * _config.velocityScale) * rotation_matrix
         
+        split = UInt32(first) // split will always be right before the "last galaxy".
+        trackSplit = UInt32(first)
+        
         _oldBufferIndex = 0
         _newBufferIndex = 1
         _oldestBufferIndex = 2
@@ -266,69 +270,80 @@ class StarSimulation : NSObject {
         }
     }
     
-    
-    func initalizeData() {
- 
-        let maxModel = 12
-                
-        switch model {
-        case 0: // one galaxy
-            split = 0
-            trackSplit = _config.numBodies
-            makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.05, squeeze: 2)
-        case 1: // small & big galaxy
-            split = _config.numBodies/8
-            trackSplit = split
-            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
-            makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05)
-        case 2: // make them collide
-            split = 0
-        case 3: // equal galaxies, parallel
-            split = _config.numBodies/2
-            trackSplit = split
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
-        case 4: // make them collide
-            split = 0
-        case 5:// equal galaxies / parallel / opposite rotation
-            split = _config.numBodies/2
-            trackSplit = split
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,-Float.pi/2,0), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05)
-        case 6: // make them collide
-            split = 0
-        case 7: // equal galaxies, same plane
-            split = _config.numBodies/2
-            trackSplit = split
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), flatten: 0.05)
-        case 8: // make them collide
-            split = 0
-        case 9: // equal galaxies, same plane / opposite rotation
-            split = _config.numBodies/2
-            trackSplit = split
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,0,Float.pi), flatten: 0.05, squeeze: 2)
-            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,0,0), flatten: 0.05)
-        case 10: // make them collide
-            split = 0
-        case 11: // equal galaxies / different orientations
-            split = _config.numBodies/2
-            trackSplit = split
-            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
-            makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05, squeeze: 2)
-        case 12: // make them collide
-            split = 0
-        default:
-            split = 0
-            trackSplit = _config.numBodies
-            makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.25)
+    func collide(semaphore: DispatchSemaphore? = nil)  { // optional semaphore, in case we for example don't want to interfere with other gpu ops
+        if semaphore != nil {
+            semaphore!.wait()
         }
         
-        if (model == maxModel) {
-            model = 0
+        split = 0
+        
+        if semaphore != nil {
+            semaphore!.signal()
+        }
+    }
 
+    func leaveAlone(semaphore: DispatchSemaphore? = nil)  { // optional semaphore, in case we for example don't want to interfere with other gpu ops
+        if semaphore != nil {
+            semaphore!.wait()
+        }
+        
+        split = trackSplit
+        
+        if semaphore != nil {
+            semaphore!.signal()
+        }
+    }
+    
+    func nextmodel(semaphore: DispatchSemaphore? = nil) { // optional semaphore, in case we for example don't want to interfere with other gpu ops
+        model = (model + 1) % models
+        
+        initalizeData(model: model, semaphore: semaphore)
+    }
+    
+    func previousmodel(semaphore: DispatchSemaphore? = nil) { // optional semaphore, in case we for example don't want to interfere with other gpu ops
+        if model != 0 {
+            model -= 1
         } else {
-            model += 1
+            model = models-1
+        }
+
+        initalizeData(model: model, semaphore: semaphore)
+    }
+    
+    
+    func initalizeData(model: Int = 0, semaphore: DispatchSemaphore? = nil) { // optional semaphore, in case we for example don't want to interfere with other gpu ops
+        if semaphore != nil {
+            semaphore!.wait()
+        }
+        
+        // when adding things, make sure we update "models" in the var declarion, which holds the total number, e.g. the last (as we start from 0) = models-1
+        switch model {
+        case 0: // one galaxy
+            makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.05, squeeze: 2)
+        case 2: // small & big galaxy
+            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
+            makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05)
+        case 3: // equal galaxies, parallel
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
+        case 4:// equal galaxies / parallel / opposite rotation
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,-Float.pi/2,0), flatten: 0.05, squeeze: 2)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05)
+        case 5: // equal galaxies, same plane
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), flatten: 0.05)
+        case 6: // equal galaxies, same plane / opposite rotation
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,0,Float.pi), flatten: 0.05, squeeze: 2)
+            makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,0,0), flatten: 0.05)
+        case 7: // equal galaxies / different orientations
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
+            makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05, squeeze: 2)
+        default:
+            makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.25)
+        }
+  
+        if semaphore != nil {
+            semaphore!.signal()
         }
     }
 

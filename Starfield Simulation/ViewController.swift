@@ -31,7 +31,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     var pinch : CGFloat = 0
     
-    override func viewDidLoad() {
+   override func viewDidLoad() {
         super.viewDidLoad()
         
         // Set the view's delegate
@@ -63,19 +63,19 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         view.addGestureRecognizer(longPressGesture)
         longPressGesture.minimumPressDuration = 1
         
-        let swipeRightGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipe(gestureRecognize:)))
+        let swipeRightGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipeRight(gestureRecognize:)))
         view.addGestureRecognizer(swipeRightGesture)
         swipeRightGesture.direction = .right
 
-        let swipeLeftGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipe(gestureRecognize:)))
+        let swipeLeftGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipeLeft(gestureRecognize:)))
         view.addGestureRecognizer(swipeLeftGesture)
         swipeLeftGesture.direction = .left
         
-        let swipeUpGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipe(gestureRecognize:)))
+        let swipeUpGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipeUp(gestureRecognize:)))
         view.addGestureRecognizer(swipeUpGesture)
         swipeUpGesture.direction = .up
         
-        let swipeDownGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipe(gestureRecognize:)))
+        let swipeDownGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipeDown(gestureRecognize:)))
         view.addGestureRecognizer(swipeDownGesture)
         swipeDownGesture.direction = .down
         
@@ -91,7 +91,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
 
-        let serialQueue = DispatchQueue(label: "com.test.mySerialQueue")
+        let serialQueue = DispatchQueue(label: "com.starfieldsimulation.mySerialQueue")
         serialQueue.sync {
             _simulation.halt = true
             _terminateAllSimulations = true
@@ -114,7 +114,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         // Pause the view's session
         session.pause()
     }
-    
+
     func beginSimulation() {
         _simulationTime = 0
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.01, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000320, simDuration: 100 /* dont think thtis was implemented */)
@@ -137,13 +137,13 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
 
         _commandQueue = renderer.device.makeCommandQueue()
     }
-
+    
     @objc
     func handleDoubleTap(gestureRecognize: UITapGestureRecognizer) {
         guard gestureRecognize.view != nil else {
             return
         }
-        
+           
         print("double tap")
         
         if gestureRecognize.state == .began {
@@ -196,30 +196,83 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         }
     }
 
-    
     @objc
-    func handleSwipe(gestureRecognize: UISwipeGestureRecognizer) {
+    func handleSwipeLeft(gestureRecognize: UISwipeGestureRecognizer) {
         guard gestureRecognize.view != nil else {
             return
         }
         
-        print("swipe")
+        print("swipe left")
         
         if gestureRecognize.state == .began {
             print("swipe began")
         }
         
-        print(gestureRecognize.direction)
         if gestureRecognize.state == .ended {
-            
             print("swipe ended")
             // make sure we are not processing stuff on the gpu before we modify data.
-            let _ = renderer.inFlightSemaphore.wait(timeout: DispatchTime.distantFuture)
-            _simulation.initalizeData()
-            renderer.inFlightSemaphore.signal()
+            _simulation.previousmodel(semaphore: renderer.inFlightSemaphore)
         }
     }
+    
+    @objc
+    func handleSwipeRight(gestureRecognize: UISwipeGestureRecognizer) {
+        guard gestureRecognize.view != nil else {
+            return
+        }
+        
+        print("swipe right")
+        
+        if gestureRecognize.state == .began {
+            print("swipe began")
+        }
+        
+        if gestureRecognize.state == .ended {
+            print("swipe ended")
+            // make sure we are not processing stuff on the gpu before we modify data.
+            _simulation.nextmodel(semaphore: renderer.inFlightSemaphore)
 
+        }
+    }
+    
+    @objc
+    func handleSwipeUp(gestureRecognize: UISwipeGestureRecognizer) {
+        guard gestureRecognize.view != nil else {
+            return
+        }
+        
+        print("swipe up")
+        
+        if gestureRecognize.state == .began {
+            print("swipe began")
+        }
+        
+        if gestureRecognize.state == .ended {
+            print("swipe ended")
+            // make sure we are not processing stuff on the gpu before we modify data.
+            _simulation.collide(semaphore: renderer.inFlightSemaphore)
+        }
+    }
+    
+    @objc
+    func handleSwipeDown(gestureRecognize: UISwipeGestureRecognizer) {
+        guard gestureRecognize.view != nil else {
+            return
+        }
+        
+        print("swipe down")
+        
+        if gestureRecognize.state == .began {
+            print("swipe began")
+        }
+        
+        if gestureRecognize.state == .ended {
+            print("swipe ended")
+            // make sure we are not processing stuff on the gpu before we modify data.
+            _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
+        }
+    }
+    
     @objc
     func handlePinch(gestureRecognize: UIPinchGestureRecognizer) {
         guard gestureRecognize.view != nil else {
@@ -247,9 +300,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         }
     }
 
-    
-    
-    
+   
     // MARK: - MTKViewDelegate
     
     // Called whenever view changes orientation or layout is changed
@@ -287,16 +338,17 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     func session(_ session: ARSession, didFailWithError error: Error) {
         // Present an error message to the user
+        print("AR Error")
         
     }
     
     func sessionWasInterrupted(_ session: ARSession) {
         // Inform the user that the session has been interrupted, for example, by presenting an overlay
-        
+        print("AR Session interrupted")
     }
     
     func sessionInterruptionEnded(_ session: ARSession) {
         // Reset tracking and/or remove existing anchors if consistent tracking is required
-        
+        print("AR Session resumed")
     }
 }
