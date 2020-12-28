@@ -55,21 +55,13 @@ typedef enum StarRenderBufferIndex
     starRenderBufferIndexPositions2 = 1,
     starRenderBufferIndexInterpolation = 2,
     starRenderBufferIndexColors   = 3,
-    starRenderBufferIndexUniforms = 4,
-    starRenderBufferIndexSharedUniforms = 5
+    starRenderBufferIndexSharedUniforms = 4
 } StarRenderBufferIndex;
 
 typedef enum StarTextureIndex
 {
     starTextureIndexColorMap = 0,
 } StarTextureIndex;
-
-typedef struct
-{
-    matrix_float4x4 mvpMatrix;
-    float pointSize;
-    
-} StarUniforms;
 
 
 #endif /* ShaderTypes_h */

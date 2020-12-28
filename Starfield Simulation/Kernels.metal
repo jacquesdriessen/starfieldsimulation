@@ -86,13 +86,12 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
         acceleration = - acceleration;
     }
     
-    if (!block.halt) { // don't simulate whilst on halt
-        currentVelocity.xyz += acceleration * params.timestep;
-        currentVelocity.xyz *= params.damping;
-        currentPosition.xyz += currentVelocity.xyz * params.timestep;
-    }
-    
-    // do track though, no matter what.
+    //simulation
+    currentVelocity.xyz += params.gravity * acceleration * params.timestep;
+    currentVelocity.xyz *= params.damping;
+    currentPosition.xyz += currentVelocity.xyz * params.timestep;
+ 
+    // tracking
     currentVelocity.xyz -= tracking.velocity.xyz;
     currentPosition.xyz -= tracking.position.xyz;
     

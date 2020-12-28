@@ -60,7 +60,6 @@ class Renderer {
     var _colors: MTLBuffer!
     var _interpolation: MTLBuffer!
     //var positionsBuffer: MTLBuffer!
-    var dynamicUniformBuffers = [MTLBuffer]()
     var currentBufferIndex: Int = 0
     var _renderScale: Float = 1
     var nightSkyMode: Bool = false
@@ -221,14 +220,6 @@ class Renderer {
         //   CPU can access the buffer
         sharedUniformBuffer = device.makeBuffer(length: sharedUniformBufferSize, options: .storageModeShared)
         sharedUniformBuffer.label = "SharedUniformBuffer"
-
-        // Create and allocate the dynamic uniform buffer objects.
-        for i in 0..<kMaxBuffersInFlight
-        {
-            // Indicate shared storage so that both the  CPU can access the buffers
-            dynamicUniformBuffers.append(device.makeBuffer(length: MemoryLayout<StarUniforms>.size, options: .storageModeShared)!)
-            dynamicUniformBuffers[i].label = "UniformBuffer" + String(i)
-        }
 
         // Create a vertex buffer with our image plane vertex data.
         let imagePlaneVertexDataCount = kImagePlaneVertexData.count * MemoryLayout<Float>.size
@@ -478,9 +469,7 @@ class Renderer {
         renderEncoder.setVertexBuffer(positionsBuffer2, offset: 0, index: Int(starRenderBufferIndexPositions2.rawValue))
         renderEncoder.setVertexBuffer(_interpolation, offset: 0, index: Int(starRenderBufferIndexInterpolation.rawValue))
         renderEncoder.setVertexBuffer(_colors, offset: 0, index: Int(starRenderBufferIndexColors.rawValue))
-         renderEncoder.setVertexBuffer(dynamicUniformBuffers[currentBufferIndex], offset: 0, index: Int(starRenderBufferIndexUniforms.rawValue))
         renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(starRenderBufferIndexSharedUniforms.rawValue))
-        //         renderEncoder.setFragmentBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(kBufferIndexSharedUniforms.rawValue))
         renderEncoder.setFragmentTexture(gaussianMap, index: Int(starTextureIndexColorMap.rawValue))
 
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: numBodies, instanceCount: 1)

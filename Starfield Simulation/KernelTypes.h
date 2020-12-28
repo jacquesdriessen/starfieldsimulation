@@ -25,13 +25,13 @@ typedef struct StarSimParams
     float           damping;
     float           softeningSqr;
     unsigned int    numBodies;
+    float           gravity;
 } StarSimParams;
 
 typedef struct StarBlock
 {
     unsigned int    begin;
     unsigned int    split;
-    bool            halt;
     bool            collide;
 } StarBlock;
 

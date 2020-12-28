@@ -63,25 +63,15 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         view.addGestureRecognizer(longPressGesture)
         longPressGesture.minimumPressDuration = 1
         
-        let swipeRightGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipeRight(gestureRecognize:)))
-        view.addGestureRecognizer(swipeRightGesture)
-        swipeRightGesture.direction = .right
-
-        let swipeLeftGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipeLeft(gestureRecognize:)))
-        view.addGestureRecognizer(swipeLeftGesture)
-        swipeLeftGesture.direction = .left
-        
-        let swipeUpGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipeUp(gestureRecognize:)))
-        view.addGestureRecognizer(swipeUpGesture)
-        swipeUpGesture.direction = .up
-        
-        let swipeDownGesture = UISwipeGestureRecognizer(target: self, action: #selector(ViewController.handleSwipeDown(gestureRecognize:)))
-        view.addGestureRecognizer(swipeDownGesture)
-        swipeDownGesture.direction = .down
-        
         let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(ViewController.handlePinch(gestureRecognize:)))
         view.addGestureRecognizer(pinchGesture)
-    }
+        
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(ViewController.handlePan(gestureRecognize:)))
+        view.addGestureRecognizer(panGesture)
+        panGesture.require(toFail: tapGesture)
+   
+   }
+
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -151,7 +141,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         }
         
         if gestureRecognize.state == .ended {
-            renderer.nightSkyMode = !renderer.nightSkyMode
             
             print("double tap ended")
         }
@@ -162,6 +151,8 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         guard gestureRecognize.view != nil else {
             return
         }
+
+    
         
         print("tap")
         
@@ -170,9 +161,25 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         }
         
         if gestureRecognize.state == .ended {
-            _simulation.halt = !_simulation.halt // pause
+            let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates -100...100
+            let y = 200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height  // coordinates -100...100
             
-            print("tap ended")
+            if x < -80 && abs(y) < 50 { // unambiguous left
+                // make sure we are not processing stuff on the gpu before we modify data.
+                _simulation.previousmodel(semaphore: renderer.inFlightSemaphore)
+            } else if x > 80 && abs(y) < 50 { // unambiguous right
+                // make sure we are not processing stuff on the gpu before we modify data.
+                _simulation.nextmodel(semaphore: renderer.inFlightSemaphore)
+            } else if y < -80 && abs(x) < 50 { // unambigous up
+                // make sure we are not processing stuff on the gpu before we modify data.
+                _simulation.collide(semaphore: renderer.inFlightSemaphore)
+            } else if y > 80 && abs(x) < 50 { // unambigous down
+                // make sure we are not processing stuff on the gpu before we modify data.
+                _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
+            } else if abs(x) < 50 && abs(y) < 50 { // unambigous middle}
+                renderer.nightSkyMode = !renderer.nightSkyMode
+            }
+            print("tap ended", x, y)
         }
     }
 
@@ -193,83 +200,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         if gestureRecognize.state == .ended {
             _simulation.interact = false
             print("long press ended")
-        }
-    }
-
-    @objc
-    func handleSwipeLeft(gestureRecognize: UISwipeGestureRecognizer) {
-        guard gestureRecognize.view != nil else {
-            return
-        }
-        
-        print("swipe left")
-        
-        if gestureRecognize.state == .began {
-            print("swipe began")
-        }
-        
-        if gestureRecognize.state == .ended {
-            print("swipe ended")
-            // make sure we are not processing stuff on the gpu before we modify data.
-            _simulation.previousmodel(semaphore: renderer.inFlightSemaphore)
-        }
-    }
-    
-    @objc
-    func handleSwipeRight(gestureRecognize: UISwipeGestureRecognizer) {
-        guard gestureRecognize.view != nil else {
-            return
-        }
-        
-        print("swipe right")
-        
-        if gestureRecognize.state == .began {
-            print("swipe began")
-        }
-        
-        if gestureRecognize.state == .ended {
-            print("swipe ended")
-            // make sure we are not processing stuff on the gpu before we modify data.
-            _simulation.nextmodel(semaphore: renderer.inFlightSemaphore)
-
-        }
-    }
-    
-    @objc
-    func handleSwipeUp(gestureRecognize: UISwipeGestureRecognizer) {
-        guard gestureRecognize.view != nil else {
-            return
-        }
-        
-        print("swipe up")
-        
-        if gestureRecognize.state == .began {
-            print("swipe began")
-        }
-        
-        if gestureRecognize.state == .ended {
-            print("swipe ended")
-            // make sure we are not processing stuff on the gpu before we modify data.
-            _simulation.collide(semaphore: renderer.inFlightSemaphore)
-        }
-    }
-    
-    @objc
-    func handleSwipeDown(gestureRecognize: UISwipeGestureRecognizer) {
-        guard gestureRecognize.view != nil else {
-            return
-        }
-        
-        print("swipe down")
-        
-        if gestureRecognize.state == .began {
-            print("swipe began")
-        }
-        
-        if gestureRecognize.state == .ended {
-            print("swipe ended")
-            // make sure we are not processing stuff on the gpu before we modify data.
-            _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
         }
     }
     
@@ -297,6 +227,29 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
                     _simulation.track = 3
                 }
             }
+        }
+    }
+    
+    @objc
+    func handlePan(gestureRecognize: UIPanGestureRecognizer) {
+        guard gestureRecognize.view != nil else {
+            return
+        }
+        
+        print("pan")
+        
+        _simulation.speed = min(max(Float(-200.0),_simulation.speed + 0.01*Float(gestureRecognize.translation(in: gestureRecognize.view!.superview!).x)), Float(200.0)) // keep between -200 and 200%
+        
+        _simulation.gravity = min(max(Float(0.0),_simulation.gravity - 0.01*Float(gestureRecognize.translation(in: gestureRecognize.view!.superview!).y)), Float(500.0)) // keep between 0 and 500%
+        
+        print(_simulation.gravity)
+        
+        if gestureRecognize.state == .began {
+            print("pan began")
+        }
+        
+        if gestureRecognize.state == .ended {
+            print("pan ended")
         }
     }
 
@@ -338,17 +291,19 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     func session(_ session: ARSession, didFailWithError error: Error) {
         // Present an error message to the user
+        _simulation.halt = true
         print("AR Error")
-        
     }
     
     func sessionWasInterrupted(_ session: ARSession) {
         // Inform the user that the session has been interrupted, for example, by presenting an overlay
+        _simulation.halt = true
         print("AR Session interrupted")
     }
     
     func sessionInterruptionEnded(_ session: ARSession) {
         // Reset tracking and/or remove existing anchors if consistent tracking is required
+        _simulation.halt = false
         print("AR Session resumed")
     }
 }
