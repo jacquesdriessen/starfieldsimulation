@@ -74,6 +74,7 @@ class StarSimulation : NSObject {
     var track = 0
     var speed : Float = 100 // percentage
     var gravity: Float = 100 // percentage
+    var pinch: Float = 1 // pinching to "squeeze" space.
 
     init(computeDevice: MTLDevice, config: SimulationConfig) {
         super.init()
@@ -187,6 +188,7 @@ class StarSimulation : NSObject {
         collide = collision_enabled
         speed = 100 // back to default speed
         gravity = 100 // back to default gravity
+        pinch = 1 // no squeezing space anymore
         
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -353,6 +355,10 @@ class StarSimulation : NSObject {
         }
     }
 
+    func squeeze(_pinch: Float) {
+        pinch = max(0.9, min(1.1, _pinch))
+    }
+    
     func getStablePositionBuffer1() -> MTLBuffer {
         return _positions[_oldestBufferIndex]
     }
@@ -390,7 +396,8 @@ class StarSimulation : NSObject {
                 let params = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self)
                 params[0].timestep = _config.simInterval * (speed/100)
                 params[0].gravity = (gravity/100)
-                
+                params[0].squeeze = pinch
+                 
                 let date = Date()
                 let calendar = Calendar.current
                 let seconds = calendar.component(.second, from: date)

@@ -91,7 +91,9 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
     currentVelocity.xyz *= params.damping; // this is tricky, assumption it's semi stationary.
     
     currentPosition.xyz += currentVelocity.xyz * params.timestep;
- 
+    
+    currentPosition.xyz *= params.squeeze; // squeeze space.
+    
     // tracking
     currentVelocity.xyz -= tracking.velocity.xyz;
     currentPosition.xyz -= tracking.position.xyz;

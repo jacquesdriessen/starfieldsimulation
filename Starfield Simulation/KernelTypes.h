@@ -26,6 +26,7 @@ typedef struct StarSimParams
     float           softeningSqr;
     unsigned int    numBodies;
     float           gravity;
+    float           squeeze;
 } StarSimParams;
 
 typedef struct StarBlock

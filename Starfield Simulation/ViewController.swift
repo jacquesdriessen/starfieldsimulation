@@ -62,11 +62,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         tapGesture.numberOfTapsRequired = 1
         tapGesture.require(toFail: doubleTapGesture)
    
-    // need to figure out a way without long press, this confuses things
-        let longPressGesture = UILongPressGestureRecognizer (target: self, action: #selector(ViewController.handleLongPress(gestureRecognize:)))
- //       view.addGestureRecognizer(longPressGesture)
-        longPressGesture.minimumPressDuration = 1
-        
         let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(ViewController.handlePinch(gestureRecognize:)))
         view.addGestureRecognizer(pinchGesture)
         
@@ -138,10 +133,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             return
         }
            
-        print("double tap")
-        
         if gestureRecognize.state == .began {
-            print("double tap began")
         }
         
         if gestureRecognize.state == .ended {
@@ -156,9 +148,9 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
                 renderer.decreaseCameraExposure()
             } else if x > 80 && y < -80 { // unambiguous top right corner
                 renderer.increaseCameraExposure()
+            } else { // tracking mode
+                 _simulation.track = (_simulation.track + 1) % 4
             }
-
-            print("double tap ended")
         }
     }
     
@@ -167,13 +159,8 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         guard gestureRecognize.view != nil else {
             return
         }
-
-    
-        
-        print("tap")
         
         if gestureRecognize.state == .began {
-            print("tap began")
         }
         
         if gestureRecognize.state == .ended {
@@ -207,44 +194,9 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             } else if x > 80 && y < -80 { // unambiguous top right corner
                 renderer.increaseCameraExposure()
             }
-            
-            print("tap ended", x, y)
         }
     }
 
-    @objc
-    func handleLongPress(gestureRecognize: UILongPressGestureRecognizer) {
-        guard gestureRecognize.view != nil else {
-            return
-        }
-        
-        print("long press")
-
-
-        let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates -100...100
-        let y = 200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height  // coordinates -100...100
-        
-        if x < -80 && y > 80 { // unambiguous bottom left corner
-            renderer.decreaseStarSize()
-        } else if x > 80 && y > 80 { // unambiguous bottom right corner
-            renderer.increaseStarSize()
-        } else if x < -80 && y < -80 { // unambiguous top left corner
-            renderer.decreaseCameraExposure()
-        } else if x > 80 && y < -80 { // unambiguous top right corner
-            renderer.increaseCameraExposure()
-        } else {
-            _simulation.interact = true
-        } 
-        
-        if gestureRecognize.state == .began {
-            print("long press began")
-        }
-        
-        if gestureRecognize.state == .ended {
-            _simulation.interact = false
-            print("long press ended")
-        }
-    }
     
     @objc
     func handlePinch(gestureRecognize: UIPinchGestureRecognizer) {
@@ -252,31 +204,14 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             return
         }
         
-        print("pinch")
-
-        pinch = gestureRecognize.scale
-        
-        print(pinch)
-
+        _simulation.squeeze(_pinch: Float(gestureRecognize.scale))
         
         if gestureRecognize.state == .began {
-            print("pinch began")
-            pinch = gestureRecognize.scale
-            
-            print(pinch)
+ 
         }
         
         if gestureRecognize.state == .ended {
-            print("pinch ended")
-            /*
-            if (gestureRecognize.scale > pinch) {
-                _simulation.track = (_simulation.track + 1) % 4
-            } else {
-                _simulation.track = (_simulation.track - 1)
-                if _simulation.track < 0 {
-                    _simulation.track = 3
-                }
-            }*/
+            _simulation.squeeze(_pinch:1)
         }
     }
     
@@ -286,22 +221,16 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             return
         }
         
-        print("pan")
-
         let x : Float = Float(200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width) // coordinates -100...100
         let y : Float = Float(200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height)  // coordinates -100...100
         
         if horizontalPan {
             /*_simulation.speed = min(max(Float(-200.0),_simulation.speed + 0.01*Float(gestureRecognize.translation(in: gestureRecognize.view!.superview!).x)), Float(200.0)) // keep between -200 and 200% */
             _simulation.speed = 1.5 * x // keep between -150% and + 150%
-            print("speed" + String(_simulation.speed))
         }
 
         if verticalPan {
             _simulation.gravity = 2 * 0.5*(y+100) // keep between 0 and 200%
-            print("gravity " + String(_simulation.gravity))
-            
-            /* _simulation.gravity = min(max(Float(0.0),_simulation.gravity - 0.01*Float(gestureRecognize.translation(in: gestureRecognize.view!.superview!).y)), Float(500.0)) // keep between 0 and 500% */
         }
         
         
@@ -318,16 +247,11 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             } else {
                 horizontalPan = false
             }
-
-            
-            print("pan began")
         }
         
         if gestureRecognize.state == .ended {
             horizontalPan = false
             verticalPan = false
-            
-            print("pan ended")
         }
     }
 
