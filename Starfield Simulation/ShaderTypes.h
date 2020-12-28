@@ -57,6 +57,8 @@ typedef enum StarRenderBufferIndex
 typedef enum StarTextureIndex
 {
     starTextureIndexColorMap = 0,
+    starTextureIndexFalseColour = 1,
+    starTextureIndexSplit = 2
 } StarTextureIndex;
 
 

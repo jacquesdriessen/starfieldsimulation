@@ -177,9 +177,13 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             let y = 200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height  // coordinates -100...100
             
             if x < -80 && abs(y) < 50 { // unambiguous left
+                // disable false colour mode as going to next simulation
+                renderer.disableFalseColours()
                 // make sure we are not processing stuff on the gpu before we modify data.
                 _simulation.previousmodel(semaphore: renderer.inFlightSemaphore)
             } else if x > 80 && abs(y) < 50 { // unambiguous right
+                // disable false colour mode as going to next simulation
+                renderer.disableFalseColours()
                 // make sure we are not processing stuff on the gpu before we modify data.
                 _simulation.nextmodel(semaphore: renderer.inFlightSemaphore)
             } else if y < -80 && abs(x) < 50 { // unambigous top
@@ -189,7 +193,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
                 // make sure we are not processing stuff on the gpu before we modify data.
                 _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
             } else if abs(x) < 50 && abs(y) < 50 { // unambigous middle}
-                //renderer.dayLightMode = 1 - renderer.dayLightMode
+                renderer.toggleFalseColours(_split: UInt(_simulation.split))
             } else if x < -80 && y > 80 { // unambiguous bottom left corner
                 renderer.decreaseStarSize()
             } else if x > 80 && y > 80 { // unambiguous bottom right corner
@@ -245,15 +249,22 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         }
         
         print("pinch")
+
+        pinch = gestureRecognize.scale
+        
+        print(pinch)
+
         
         if gestureRecognize.state == .began {
             print("pinch began")
             pinch = gestureRecognize.scale
+            
+            print(pinch)
         }
         
         if gestureRecognize.state == .ended {
             print("pinch ended")
-            
+            /*
             if (gestureRecognize.scale > pinch) {
                 _simulation.track = (_simulation.track + 1) % 4
             } else {
@@ -261,7 +272,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
                 if _simulation.track < 0 {
                     _simulation.track = 3
                 }
-            }
+            }*/
         }
     }
     

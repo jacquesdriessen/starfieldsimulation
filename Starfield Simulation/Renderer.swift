@@ -87,6 +87,9 @@ class Renderer {
     
     // starting starsize
     var starSize: Float = 5
+    
+    var falseColour: Bool = false // if true / one galaxy is red, the other is blue
+    var split: UInt = 0 // below = red, over will be blue
        
     init(session: ARSession, metalDevice device: MTLDevice, renderDestination: RenderDestinationProvider, numBodies: Int) {
         self.session = session
@@ -474,6 +477,9 @@ class Renderer {
         renderEncoder.setVertexBuffer(_colors, offset: 0, index: Int(starRenderBufferIndexColors.rawValue))
         renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(starRenderBufferIndexSharedUniforms.rawValue))
         renderEncoder.setFragmentTexture(gaussianMap, index: Int(starTextureIndexColorMap.rawValue))
+        renderEncoder.setFragmentBytes(&falseColour, length: MemoryLayout<Bool>.size, index: Int(starTextureIndexFalseColour.rawValue))
+        renderEncoder.setFragmentBytes(&split, length: MemoryLayout<UInt>.size, index: Int(starTextureIndexSplit.rawValue))
+
 
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: numBodies, instanceCount: 1)
         
@@ -504,4 +510,13 @@ class Renderer {
         }
     }
     
+    func toggleFalseColours(_split: UInt) {
+        split = _split
+        falseColour = !falseColour
+    }
+    
+    func disableFalseColours() {
+        split = 0
+        falseColour = false
+    }
 }

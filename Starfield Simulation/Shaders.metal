@@ -70,6 +70,7 @@ typedef struct
     half3  eyePosition;
     half4  color;
     float  radius;
+    uint   vertexID;
 } StarColorInOut;
 
 
@@ -103,14 +104,17 @@ vertex StarColorInOut starVertexShader(
     
     out.pointSize = out.radius * sharedUniforms.starSize / distance((modelViewMatrix * position).xyz, out.position.xyz);
     
+    out.vertexID = vertexID;
+    
     return out;
 }
 
 // Star geometry fragment function
 fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
-                                   //constant SharedUniforms &uniforms [[ buffer(kBufferIndexSharedUniforms) ]]
-                                   texture2d<half>  colorMap [[ texture(starTextureIndexColorMap)  ]],
-                                   float2           texcoord [[ point_coord ]]) {
+                                  texture2d<half>  colorMap [[ texture(starTextureIndexColorMap)  ]],
+                                  constant bool &  falseColour [[ buffer(starTextureIndexFalseColour)]],
+                                  constant uint &  split [[ buffer(starTextureIndexSplit)]],
+                                  float2           texcoord [[ point_coord ]]) {
     constexpr sampler linearSampler (mip_filter::none,
                                      mag_filter::linear,
                                      min_filter::linear);
@@ -131,13 +135,25 @@ fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
         x = half4(.0h, 1.0h, .0h, x.w);
         y = half4(.0h, 1.0h, .0h, y.w);
         fragColor = half4(.0h, 1.0h, .0h, fragColor.w);
+    } else if (falseColour) {
+        if (inColor.vertexID < split) {
+            x = half4(1.0h, 0.0h, 0.0h, 1.0h); // red
+            y = half4(1.0h, 0.0h, 0.0h, 1.0h); // red
+            fragColor = half4(1.0h, 0.0h, 0.0h, fragColor.w); // red
+        } else {
+            x = half4(0.0h, 0.0h, 1.0h, 1.0h); // blue
+            y = half4(0.0h, 0.0h, 1.0h, 1.0h); // blue
+            fragColor = half4(0.0h, 0.0h, 1.0h, fragColor.w); // blue
+        }
+
     } else if (inColor.radius > 1.5) { // big stars are blue-ish
         fragColor = half4(0.5h * fragColor.x, 0.5h * fragColor.y, 0.5h + 0.5h * fragColor.z, fragColor.w);
         
     } else if (inColor.radius < 1.2) { // small stars are reddish
         fragColor = half4(0.5h + 0.5h * fragColor.x, 0.5h * fragColor.y, 0.5h * fragColor.z, fragColor.w);
     }
-
+        
     return fragColor * mix(x, y, a);
+        
 }
 
