@@ -5,10 +5,23 @@
 //  Created by Jacques Driessen on 22/12/2020.
 //
 
-import UIKit
 import Metal
 import MetalKit
 import ARKit
+import UIKit
+
+@IBDesignable class MyButton: UIButton
+{
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        
+        layer.cornerRadius = frame.size.height / 5
+        clipsToBounds = true
+        alpha = 0.2
+        backgroundColor = .darkGray
+        tintColor = .white
+    }
+}
 
 extension MTKView : RenderDestinationProvider {
 }
@@ -33,8 +46,16 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     var horizontalPan = false
     var verticalPan = false
+    /*
+    @IBAction func actionDarken(_ sender: Any) {
+        renderer.decreaseCameraExposure()
+    }
     
-   override func viewDidLoad() {
+    @IBAction func actionBrighten(_ sender: Any) {
+        renderer.increaseCameraExposure()
+    }
+    */
+    override func viewDidLoad() {
         super.viewDidLoad()
         
         // Set the view's delegate
@@ -49,7 +70,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         _view.delegate = self
             
         guard _view.device != nil else {
-            print("Metal is not supported on this device")
             return
         }
         
