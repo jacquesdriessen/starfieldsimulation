@@ -16,7 +16,6 @@ import ARKit
         
         layer.cornerRadius = frame.size.height / 5
         clipsToBounds = true
-        alpha = 0.2
         backgroundColor = .darkGray
         tintColor = .white
     }
@@ -45,24 +44,42 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     var horizontalPan = false
     var verticalPan = false
+    
+    var alpha: CGFloat = 5 // initialy show longer
 
+    @IBOutlet weak var buttonLarger: MyButton!
+    @IBOutlet weak var buttonDarker: MyButton!
+    @IBOutlet weak var buttonCollide: MyButton!
+    @IBOutlet weak var buttonBrighter: MyButton!
+    @IBOutlet weak var buttonSmaller: MyButton!
+    @IBOutlet weak var buttonPrevious: MyButton!
+    @IBOutlet weak var buttonNext: MyButton!
+    @IBOutlet weak var buttonSeparate: MyButton!
+    
+    var myButtons = [MyButton]()
+    
     @IBAction func actionDarker(_ sender: Any) {
+        showUI()
         renderer.decreaseCameraExposure()
     }
     
     @IBAction func actionBrighter(_ sender: Any) {
+        showUI()
         renderer.increaseCameraExposure()
     }
     
     @IBAction func acttionSmaller(_ sender: Any) {
+        showUI()
         renderer.decreaseStarSize()
     }
     
     @IBAction func actionLarger(_ sender: Any) {
+        showUI()
         renderer.increaseStarSize()
     }
     
     @IBAction func actionPreviousModel(_ sender: Any) {
+        showUI()
         // disable false colour mode as going to next simulation
         renderer.disableFalseColours()
         // make sure we are not processing stuff on the gpu before we modify data.
@@ -70,6 +87,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     }
     
     @IBAction func actionNextModel(_ sender: Any) {
+        showUI()
         // disable false colour mode as going to next simulation
         renderer.disableFalseColours()
         // make sure we are not processing stuff on the gpu before we modify data.
@@ -77,11 +95,13 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     }
     
     @IBAction func actionCollide(_ sender: Any) {
+        showUI()
         // make sure we are not processing stuff on the gpu before we modify data.
         _simulation.collide(semaphore: renderer.inFlightSemaphore)
     }
     
     @IBAction func actionSeparate(_ sender: Any) {
+        showUI()
         // make sure we are not processing stuff on the gpu before we modify data.
         _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
     }
@@ -90,7 +110,8 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+        myButtons = [buttonLarger, buttonDarker, buttonCollide, buttonBrighter, buttonSmaller, buttonPrevious, buttonNext, buttonSeparate]
+
         // Set the view's delegate
         session = ARSession()
         session.delegate = self
@@ -101,7 +122,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         _view.device = MTLCreateSystemDefaultDevice()
         _view.backgroundColor = UIColor.clear
         _view.delegate = self
-            
+        
         guard _view.device != nil else {
             return
         }
@@ -213,6 +234,8 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             return
         }
         
+        showUI()
+        
         if gestureRecognize.state == .began {
         }
         
@@ -316,8 +339,29 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         renderer.drawRectResized(size: size)
     }
     
+    func setAlphaUI() {
+        for i in myButtons {
+            i.alpha = min(alpha, CGFloat(1)) // min so we can use alpha > 1 to "show the UI longer" at the start.
+        }
+    }
+    
+    func fadeOutUI() {
+        if alpha > 0 {
+            alpha = max(alpha - CGFloat(0.005), CGFloat(0))
+            setAlphaUI()
+        }
+    }
+    
+    func showUI() {
+        alpha = 1
+        setAlphaUI()
+    }
+    
     // Called whenever the view needs to render
     func draw(in view: MTKView) {
+        
+        // first fade out the user inter
+        fadeOutUI()
         
         // update position 20cms in front of the camera using the camera's current position, "finger"
         if let currentFrame = session.currentFrame {

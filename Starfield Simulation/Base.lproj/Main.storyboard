@@ -15,7 +15,7 @@
                         <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="16c-55-NxV">
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="16c-55-NxV" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
                                 <rect key="frame" x="349" y="832" width="45" height="30"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES"/>
                                 <state key="normal" title="Larger"/>
@@ -23,7 +23,7 @@
                                     <action selector="actionLarger:" destination="BV1-FR-VrT" eventType="touchUpInside" id="wmK-Wd-x3A"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="CuK-gF-K6E">
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="CuK-gF-K6E" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
                                 <rect key="frame" x="20" y="44" width="46" height="30"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                 <state key="normal" title="Darker"/>
@@ -31,7 +31,7 @@
                                     <action selector="actionDarker:" destination="BV1-FR-VrT" eventType="touchUpInside" id="tbG-i7-Ob1"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Y5O-gl-es1">
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Y5O-gl-es1" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
                                 <rect key="frame" x="183" y="44" width="48" height="30"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                 <state key="normal" title="Collide"/>
@@ -39,7 +39,7 @@
                                     <action selector="actionCollide:" destination="BV1-FR-VrT" eventType="touchUpInside" id="go5-ND-Ggu"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="4Gd-eM-ieY">
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="4Gd-eM-ieY" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
                                 <rect key="frame" x="344" y="44" width="55" height="30"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
                                 <state key="normal" title="Brighter"/>
@@ -47,7 +47,7 @@
                                     <action selector="actionBrighter:" destination="BV1-FR-VrT" eventType="touchUpInside" id="jr3-Gf-Tqf"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="LGP-f5-Rpd">
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="LGP-f5-Rpd" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
                                 <rect key="frame" x="17" y="832" width="52" height="30"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                 <state key="normal" title="Smaller"/>
@@ -55,7 +55,7 @@
                                     <action selector="acttionSmaller:" destination="BV1-FR-VrT" eventType="touchUpInside" id="7FF-ka-zC6"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="VgA-AS-kDw">
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="VgA-AS-kDw" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
                                 <rect key="frame" x="14" y="433" width="59" height="30"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
                                 <state key="normal" title="Previous"/>
@@ -63,7 +63,7 @@
                                     <action selector="actionPreviousModel:" destination="BV1-FR-VrT" eventType="touchUpInside" id="MHn-tR-DZd"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="884-gM-RdI">
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="884-gM-RdI" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
                                 <rect key="frame" x="355" y="433" width="32" height="30"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
                                 <state key="normal" title="Next"/>
@@ -71,7 +71,7 @@
                                     <action selector="actionNextModel:" destination="BV1-FR-VrT" eventType="touchUpInside" id="G3D-Ct-f85"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="INY-yB-dfk">
+                            <button opaque="NO" contentMode="scaleToFill" fixedFrame="YES" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="INY-yB-dfk" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
                                 <rect key="frame" x="176" y="832" width="62" height="30"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES"/>
                                 <state key="normal" title="Separate"/>
@@ -82,10 +82,46 @@
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="3C0-cp-GOg"/>
                     </view>
+                    <connections>
+                        <outlet property="buttonBrighter" destination="4Gd-eM-ieY" id="1KX-tk-LQg"/>
+                        <outlet property="buttonCollide" destination="Y5O-gl-es1" id="Y5D-NK-rrm"/>
+                        <outlet property="buttonDarker" destination="CuK-gF-K6E" id="OVz-4v-GGG"/>
+                        <outlet property="buttonLarger" destination="16c-55-NxV" id="5hT-1p-Qy8"/>
+                        <outlet property="buttonNext" destination="884-gM-RdI" id="RrO-xo-pJ8"/>
+                        <outlet property="buttonPrevious" destination="VgA-AS-kDw" id="8Dl-u6-7nM"/>
+                        <outlet property="buttonSeparate" destination="INY-yB-dfk" id="9CI-Kl-bdN"/>
+                        <outlet property="buttonSmaller" destination="LGP-f5-Rpd" id="hxC-oq-Rpi"/>
+                    </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="SZV-WD-TEh" sceneMemberID="firstResponder"/>
             </objects>
             <point key="canvasLocation" x="-102.89855072463769" y="-14.0625"/>
         </scene>
     </scenes>
+    <designables>
+        <designable name="16c-55-NxV">
+            <size key="intrinsicContentSize" width="45" height="30"/>
+        </designable>
+        <designable name="4Gd-eM-ieY">
+            <size key="intrinsicContentSize" width="55" height="30"/>
+        </designable>
+        <designable name="884-gM-RdI">
+            <size key="intrinsicContentSize" width="32" height="30"/>
+        </designable>
+        <designable name="CuK-gF-K6E">
+            <size key="intrinsicContentSize" width="46" height="30"/>
+        </designable>
+        <designable name="INY-yB-dfk">
+            <size key="intrinsicContentSize" width="62" height="30"/>
+        </designable>
+        <designable name="LGP-f5-Rpd">
+            <size key="intrinsicContentSize" width="52" height="30"/>
+        </designable>
+        <designable name="VgA-AS-kDw">
+            <size key="intrinsicContentSize" width="59" height="30"/>
+        </designable>
+        <designable name="Y5O-gl-es1">
+            <size key="intrinsicContentSize" width="48" height="30"/>
+        </designable>
+    </designables>
 </document>

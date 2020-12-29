@@ -500,13 +500,13 @@ class Renderer {
     
     func decreaseCameraExposure() {
         if dayLightMode > 0 {
-            dayLightMode -= 0.1
+            dayLightMode -= 0.2
         }
     }
     
     func increaseCameraExposure() {
         if dayLightMode < 1 {
-            dayLightMode += 0.1
+            dayLightMode += 0.2
         }
     }
     
