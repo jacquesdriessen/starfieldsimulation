@@ -71,7 +71,8 @@ import ARKit
 extension MTKView : RenderDestinationProvider {
 }
 
-class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
+class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPickerViewDelegate, UIPickerViewDataSource {
+
     var _view: MTKView!
     var session: ARSession!
     var renderer: Renderer!
@@ -115,6 +116,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         gravityLabel.text = "Gravity: 100%"
         timeStepper.value = 100
         timeLabel.text = "Time: 100%"
+        TrackingPicker.selectRow(0, inComponent: 0, animated: true)
     }
     
     @IBOutlet weak var collisionsLabel: MyStepperLabel!
@@ -150,11 +152,28 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         renderer.toggleFalseColours(_split: UInt(_simulation.split))
     }
     
-    @IBAction func trackNextPressed(_ sender: MyButton) {
-        _simulation.track = (_simulation.track + 1) % 4
+    @IBOutlet weak var pinchLabel: UILabel!
+    
+
+    let trackingOptions : [String] = ["None", "Blue / 1", "Red / 2", "Middle"]
+
+    @IBOutlet weak var TrackingPicker: UIPickerView!
+  
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        return 1
     }
     
-    @IBOutlet weak var pinchLabel: UILabel!
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        return trackingOptions.count
+    }
+    
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+        return trackingOptions[row]
+     }
+    
+    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+        _simulation.track = row
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -173,6 +192,10 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         guard _view.device != nil else {
             return
         }
+
+        TrackingPicker.delegate = self
+        TrackingPicker.dataSource = self
+
         /*
         let doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleDoubleTap(gestureRecognize:)))
         view.addGestureRecognizer(doubleTapGesture)
