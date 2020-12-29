@@ -110,13 +110,13 @@
                                     <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="Xud-S0-c7K" customClass="MyStepperWrapper" customModule="Starfield_Simulation" customModuleProvider="target">
                                         <rect key="frame" x="0.0" y="75" width="128" height="64"/>
                                         <subviews>
-                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Gravity: 100%" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="u3R-kC-67L">
+                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Gravity: 100%" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="u3R-kC-67L" customClass="MyStepperLabel" customModule="Starfield_Simulation" customModuleProvider="target">
                                                 <rect key="frame" x="11" y="0.0" width="106.5" height="32"/>
                                                 <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                                <nil key="textColor"/>
                                                 <nil key="highlightedColor"/>
                                             </label>
-                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="100" maximumValue="200" stepValue="10" translatesAutoresizingMaskIntoConstraints="NO" id="D9k-Dy-ds7" customClass="MyStepper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="100" maximumValue="200" stepValue="10" translatesAutoresizingMaskIntoConstraints="NO" id="D9k-Dy-ds7">
                                                 <rect key="frame" x="17" y="32" width="94" height="32"/>
                                                 <connections>
                                                     <action selector="gravityStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="fFw-YU-k38"/>
@@ -127,13 +127,13 @@
                                     <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="SQ2-Ow-WY5" customClass="MyStepperWrapper" customModule="Starfield_Simulation" customModuleProvider="target">
                                         <rect key="frame" x="0.0" y="150" width="128" height="64"/>
                                         <subviews>
-                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Time: 100%" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="c37-K2-8Iq">
+                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Time: 100%" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="c37-K2-8Iq" customClass="MyStepperLabel" customModule="Starfield_Simulation" customModuleProvider="target">
                                                 <rect key="frame" x="19" y="0.0" width="90" height="32"/>
                                                 <fontDescription key="fontDescription" type="system" pointSize="17"/>
-                                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                                <nil key="textColor"/>
                                                 <nil key="highlightedColor"/>
                                             </label>
-                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="100" minimumValue="-150" maximumValue="150" stepValue="10" translatesAutoresizingMaskIntoConstraints="NO" id="dmw-xo-h5F" customClass="MyStepper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="100" minimumValue="-150" maximumValue="150" stepValue="10" translatesAutoresizingMaskIntoConstraints="NO" id="dmw-xo-h5F">
                                                 <rect key="frame" x="17" y="32" width="94" height="32"/>
                                                 <connections>
                                                     <action selector="timeStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="vJj-lr-E4C"/>
@@ -183,9 +183,6 @@
         <designable name="85A-hQ-P2f">
             <size key="intrinsicContentSize" width="94" height="32"/>
         </designable>
-        <designable name="D9k-Dy-ds7">
-            <size key="intrinsicContentSize" width="94" height="32"/>
-        </designable>
         <designable name="Dfb-Ku-cJ9">
             <size key="intrinsicContentSize" width="95.5" height="20.5"/>
         </designable>
@@ -198,14 +195,17 @@
         <designable name="Qkw-Dn-dEs">
             <size key="intrinsicContentSize" width="110.5" height="20.5"/>
         </designable>
-        <designable name="dmw-xo-h5F">
-            <size key="intrinsicContentSize" width="94" height="32"/>
+        <designable name="c37-K2-8Iq">
+            <size key="intrinsicContentSize" width="90" height="20.5"/>
         </designable>
         <designable name="fWL-Xf-kUW">
             <size key="intrinsicContentSize" width="94" height="32"/>
         </designable>
         <designable name="nLz-rr-PPp">
             <size key="intrinsicContentSize" width="79.5" height="20.5"/>
+        </designable>
+        <designable name="u3R-kC-67L">
+            <size key="intrinsicContentSize" width="106.5" height="20.5"/>
         </designable>
         <designable name="uyn-AQ-Vbt">
             <size key="intrinsicContentSize" width="74" height="30"/>
