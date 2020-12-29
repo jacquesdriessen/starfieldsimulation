@@ -45,15 +45,49 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     var horizontalPan = false
     var verticalPan = false
-    /*
-    @IBAction func actionDarken(_ sender: Any) {
+
+    @IBAction func actionDarker(_ sender: Any) {
         renderer.decreaseCameraExposure()
     }
     
-    @IBAction func actionBrighten(_ sender: Any) {
+    @IBAction func actionBrighter(_ sender: Any) {
         renderer.increaseCameraExposure()
     }
-    */
+    
+    @IBAction func acttionSmaller(_ sender: Any) {
+        renderer.decreaseStarSize()
+    }
+    
+    @IBAction func actionLarger(_ sender: Any) {
+        renderer.increaseStarSize()
+    }
+    
+    @IBAction func actionPreviousModel(_ sender: Any) {
+        // disable false colour mode as going to next simulation
+        renderer.disableFalseColours()
+        // make sure we are not processing stuff on the gpu before we modify data.
+        _simulation.previousmodel(semaphore: renderer.inFlightSemaphore)
+    }
+    
+    @IBAction func actionNextModel(_ sender: Any) {
+        // disable false colour mode as going to next simulation
+        renderer.disableFalseColours()
+        // make sure we are not processing stuff on the gpu before we modify data.
+        _simulation.nextmodel(semaphore: renderer.inFlightSemaphore)
+    }
+    
+    @IBAction func actionCollide(_ sender: Any) {
+        // make sure we are not processing stuff on the gpu before we modify data.
+        _simulation.collide(semaphore: renderer.inFlightSemaphore)
+    }
+    
+    @IBAction func actionSeparate(_ sender: Any) {
+        // make sure we are not processing stuff on the gpu before we modify data.
+        _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
+    }
+    
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         
@@ -156,7 +190,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         }
         
         if gestureRecognize.state == .ended {
-            let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates -100...100
+         /*   let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates -100...100
             let y = 200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height  // coordinates -100...100
             
             if x < -80 && y > 80 { // unambiguous bottom left corner
@@ -167,9 +201,9 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
                 renderer.decreaseCameraExposure()
             } else if x > 80 && y < -80 { // unambiguous top right corner
                 renderer.increaseCameraExposure()
-            } else { // tracking mode
+            } else */ // tracking mode
                  _simulation.track = (_simulation.track + 1) % 4
-            }
+            
         }
     }
     
@@ -185,7 +219,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         if gestureRecognize.state == .ended {
             let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates -100...100
             let y = 200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height  // coordinates -100...100
-            
+   /*
             if x < -80 && abs(y) < 50 { // unambiguous left
                 // disable false colour mode as going to next simulation
                 renderer.disableFalseColours()
@@ -202,9 +236,9 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             } else if y > 80 && abs(x) < 50 { // unambigous bottom
                 // make sure we are not processing stuff on the gpu before we modify data.
                 _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
-            } else if abs(x) < 50 && abs(y) < 50 { // unambigous middle}
+            } else */if abs(x) < 50 && abs(y) < 50 { // unambigous middle}
                 renderer.toggleFalseColours(_split: UInt(_simulation.split))
-            } else if x < -80 && y > 80 { // unambiguous bottom left corner
+            } /*else if x < -80 && y > 80 { // unambiguous bottom left corner
                 renderer.decreaseStarSize()
             } else if x > 80 && y > 80 { // unambiguous bottom right corner
                 renderer.increaseStarSize()
@@ -212,7 +246,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
                 renderer.decreaseCameraExposure()
             } else if x > 80 && y < -80 { // unambiguous top right corner
                 renderer.increaseCameraExposure()
-            }
+            }*/
         }
     }
 
