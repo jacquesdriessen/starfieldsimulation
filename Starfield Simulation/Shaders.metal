@@ -157,3 +157,38 @@ fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
         
 }
 
+
+typedef struct
+{
+    float4 position [[position]];
+    half4 color;
+} InteractiveInOut;
+
+vertex InteractiveInOut interactiveVertexShader(const device InteractiveVertex *vertices [[buffer(0)]],
+                                                constant SharedUniforms &    sharedUniforms [[ buffer(1) ]],
+                                                uint vertexID  [[ vertex_id ]]
+                                                )
+                                       
+{
+    InteractiveVertex in = vertices[vertexID];
+    InteractiveInOut out;
+    
+    float4 position = float4(in.position.xyz, 1);
+    
+    //  float4x4 modelMatrix = instanceUniforms[iid].modelMatrix;
+    float4x4 modelViewMatrix = sharedUniforms.viewMatrix; // * modelMatrix;
+    
+    // Calculate the position of our vertex in clip space and output for clipping and rasterization
+    out.position = sharedUniforms.projectionMatrix * modelViewMatrix * position;
+
+    out.color = half4(in.color);
+    
+    return out;
+}
+
+
+
+fragment half4 interactiveFragmentShader(InteractiveInOut interpolatedIn [[stage_in]]) {
+    return interpolatedIn.color;
+}
+

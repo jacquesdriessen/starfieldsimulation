@@ -61,5 +61,11 @@ typedef enum StarTextureIndex
     starTextureIndexSplit = 2
 } StarTextureIndex;
 
+typedef struct {
+    vector_float4 position;
+    vector_float4 color;
+} InteractiveVertex;
+
+
 
 #endif /* ShaderTypes_h */

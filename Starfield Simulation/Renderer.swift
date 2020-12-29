@@ -33,7 +33,7 @@ let kImagePlaneVertexData: [Float] = [
     1.0,  1.0,  1.0, 0.0,
 ]
 
-// The point size (in pixels) of rendered bodied
+// The point size (in pixels) of rendered bodies
 let bodyPointSize = 15;
 
 // Size of gaussian map to create rounded smooth points
@@ -56,10 +56,13 @@ class Renderer {
     var capturedImageTextureCbCr: CVMetalTexture?
     var starPipelineState: MTLRenderPipelineState!
     var starDepthState:    MTLDepthStencilState!
+    var interactivePipelineState: MTLRenderPipelineState!
+    var interactiveDepthState: MTLDepthStencilState!
     var gaussianMap: MTLTexture!
     var _colors: MTLBuffer!
     var _interpolation: MTLBuffer!
-    //var positionsBuffer: MTLBuffer!
+    let maxInteractiveVertices = 1024
+    var interactiveVertexBuffer: MTLBuffer!
     var currentBufferIndex: Int = 0
     var _renderScale: Float = 1
     var dayLightMode: Float = 1
@@ -187,9 +190,12 @@ class Renderer {
                 renderEncoder.label = "MyRenderEncoder"
                 
                 drawCapturedImage(renderEncoder: renderEncoder)
-                
+               
                 drawStars(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer1: positionsBuffer1, positionsBuffer2: positionsBuffer2, interpolation: interpolation)
-                
+
+                drawInteractive(renderEncoder: renderEncoder)
+
+               
                 // We're done encoding commands
                 renderEncoder.endEncoding()
                 
@@ -229,6 +235,9 @@ class Renderer {
         let imagePlaneVertexDataCount = kImagePlaneVertexData.count * MemoryLayout<Float>.size
         imagePlaneVertexBuffer = device.makeBuffer(bytes: kImagePlaneVertexData, length: imagePlaneVertexDataCount, options: [])
         imagePlaneVertexBuffer.label = "ImagePlaneVertexBuffer"
+        
+        interactiveVertexBuffer = device.makeBuffer(length: maxInteractiveVertices *  MemoryLayout<InteractiveVertex>.size, options: [])
+        interactiveVertexBuffer.label = "InteractiveVertexBuffer"
         
         // Load all the shader files with a metal file extension in the project
         let defaultLibrary = device.makeDefaultLibrary()!
@@ -303,7 +312,7 @@ class Renderer {
         do {
             try starPipelineState = device.makeRenderPipelineState(descriptor: starPipelineDescriptor)
         } catch let error {
-            print("Failed to created star pipeline state, error \(error)")
+            print("Failed to create star pipeline state, error \(error)")
         }
         
         let starDepthStateDescriptor = MTLDepthStencilDescriptor()
@@ -314,6 +323,39 @@ class Renderer {
         // Create the command queue
         
         setNumRenderBodies(numBodies: numBodies)
+        
+        // interactive stuff
+        
+        let interactiveVertexFunction = defaultLibrary.makeFunction(name: "interactiveVertexShader")
+        let interactiveFragmentFunction = defaultLibrary.makeFunction(name: "interactiveFragmentShader")
+        
+        let interactivePipelineDescriptor = MTLRenderPipelineDescriptor()
+        interactivePipelineDescriptor.label = "InteractivePipeline"
+        interactivePipelineDescriptor.sampleCount = renderDestination.sampleCount
+        interactivePipelineDescriptor.vertexFunction = interactiveVertexFunction
+        interactivePipelineDescriptor.fragmentFunction = interactiveFragmentFunction
+        interactivePipelineDescriptor.colorAttachments[0].pixelFormat = renderDestination.colorPixelFormat
+        interactivePipelineDescriptor.depthAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
+        interactivePipelineDescriptor.stencilAttachmentPixelFormat = renderDestination.depthStencilPixelFormat
+        // see for each of these whether necessary
+        interactivePipelineDescriptor.colorAttachments[0].isBlendingEnabled = true;
+        interactivePipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
+        interactivePipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
+        interactivePipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+        interactivePipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor  = .sourceAlpha
+        interactivePipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .one
+        interactivePipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .one
+        
+        do {
+            try interactivePipelineState = device.makeRenderPipelineState(descriptor: interactivePipelineDescriptor)
+        } catch let error {
+            print("Failed to create interactive pipeline state, error \(error)")
+        }
+        
+        let interactiveDepthStateDescriptor = MTLDepthStencilDescriptor()
+        interactiveDepthStateDescriptor.depthCompareFunction = .always
+        interactiveDepthStateDescriptor.isDepthWriteEnabled = false
+        interactiveDepthState = device.makeDepthStencilState(descriptor: interactiveDepthStateDescriptor)
         
         commandQueue = device.makeCommandQueue()
         
@@ -485,6 +527,31 @@ class Renderer {
         
         renderEncoder.popDebugGroup()
     }
+     
+    func drawInteractive(renderEncoder: MTLRenderCommandEncoder) {
+        // Push a debug group allowing us to identify render commands in the GPU Frame Capture tool
+        renderEncoder.pushDebugGroup("Rays")
+        
+        // Set render command encoder state
+        renderEncoder.setCullMode(.none)
+        renderEncoder.setRenderPipelineState(interactivePipelineState)
+        renderEncoder.setDepthStencilState(interactiveDepthState)
+        
+        let vertices = interactiveVertexBuffer.contents().assumingMemoryBound(to: InteractiveVertex.self)
+        
+        vertices[0] = InteractiveVertex(position: [-1, -1, -1, 0], color: [1, 0, 0, 1])
+        vertices[1] = InteractiveVertex(position: [0, 1, -1, 0], color: [0, 1, 0, 1])
+        vertices[2] = InteractiveVertex(position: [1, -1, -1,0 ], color: [0, 0, 1, 1])
+        vertices[3] = InteractiveVertex(position: [-1, -1, -1, 0], color: [1, 0, 0, 1])
+        
+        renderEncoder.setVertexBuffer(interactiveVertexBuffer, offset: 0, index: 0)
+        renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: 1)
+
+        renderEncoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: 4)
+        
+        renderEncoder.popDebugGroup()
+    }
+    
     
     func increaseStarSize() {
         if starSize < 10 {
