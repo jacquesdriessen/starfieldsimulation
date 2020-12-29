@@ -14,7 +14,7 @@ import ARKit
     override func layoutSubviews() {
         super.layoutSubviews()
         
-        layer.cornerRadius = frame.size.height / 5
+        layer.cornerRadius = frame.size.height / 2
         clipsToBounds = true
         backgroundColor = .darkGray
         tintColor = .white
@@ -105,8 +105,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         // make sure we are not processing stuff on the gpu before we modify data.
         _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
     }
-    
-    
     
     override func viewDidLoad() {
         super.viewDidLoad()
