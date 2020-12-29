@@ -4,7 +4,6 @@
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
-        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -16,90 +15,160 @@
                         <rect key="frame" x="0.0" y="0.0" width="480" height="320"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" distribution="equalSpacing" id="SAC-kA-LLJ">
-                                <rect key="frame" x="20" y="44" width="86" height="255"/>
+                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" distribution="equalSpacing" id="SAC-kA-LLJ" customClass="MyStackView" customModule="Starfield_Simulation" customModuleProvider="target">
+                                <rect key="frame" x="20" y="44" width="129" height="255"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES"/>
                                 <subviews>
-                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="CuK-gF-K6E" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="0.0" width="86" height="30"/>
-                                        <state key="normal" title="Darker"/>
+                                    <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" distribution="fillEqually" alignment="center" id="1cc-Eh-3R0" customClass="MyStepperWrapper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="0.0" width="129" height="64"/>
+                                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                        <subviews>
+                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="AR Experience" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontForContentSizeCategory="YES" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Qkw-Dn-dEs" customClass="MyStepperLabel" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="9.5" y="0.0" width="110.5" height="32"/>
+                                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                <nil key="textColor"/>
+                                                <nil key="highlightedColor"/>
+                                            </label>
+                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" continuous="NO" minimumValue="-1" maximumValue="1" translatesAutoresizingMaskIntoConstraints="NO" id="OK5-kp-acj" customClass="MyStepper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="17.5" y="32" width="94" height="32"/>
+                                                <connections>
+                                                    <action selector="arStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="nr0-eV-Rh2"/>
+                                                </connections>
+                                            </stepper>
+                                        </subviews>
+                                    </stackView>
+                                    <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="t2N-ua-Y2n" customClass="MyStepperWrapper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="75" width="129" height="64"/>
+                                        <subviews>
+                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Size of Stars" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Dfb-Ku-cJ9" customClass="MyStepperLabel" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="17" y="0.0" width="95.5" height="32"/>
+                                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                <nil key="textColor"/>
+                                                <nil key="highlightedColor"/>
+                                            </label>
+                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" maximumValue="100" translatesAutoresizingMaskIntoConstraints="NO" id="85A-hQ-P2f" customClass="MyStepper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="17.5" y="32" width="94" height="32"/>
+                                                <connections>
+                                                    <action selector="starSizeStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="njo-c6-fSO"/>
+                                                </connections>
+                                            </stepper>
+                                        </subviews>
+                                    </stackView>
+                                    <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="avM-VQ-mEZ" customClass="MyStepperWrapper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="150" width="129" height="64"/>
+                                        <subviews>
+                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Simulation" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="nLz-rr-PPp" customClass="MyStepperLabel" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="25" y="0.0" width="79.5" height="32"/>
+                                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                <nil key="textColor"/>
+                                                <nil key="highlightedColor"/>
+                                            </label>
+                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" maximumValue="100" translatesAutoresizingMaskIntoConstraints="NO" id="1QO-42-o1z" customClass="MyStepper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="17.5" y="32" width="94" height="32"/>
+                                                <connections>
+                                                    <action selector="simulationStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="AdO-fK-jEk"/>
+                                                </connections>
+                                            </stepper>
+                                        </subviews>
+                                    </stackView>
+                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="L35-WB-kYq" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="225" width="129" height="30"/>
+                                        <state key="normal" title="Colours"/>
                                         <connections>
-                                            <action selector="actionDarker:" destination="BV1-FR-VrT" eventType="touchUpInside" id="tbG-i7-Ob1"/>
-                                        </connections>
-                                    </button>
-                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="VgA-AS-kDw" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="75" width="86" height="30"/>
-                                        <state key="normal" title="Previous"/>
-                                        <connections>
-                                            <action selector="actionPreviousModel:" destination="BV1-FR-VrT" eventType="touchUpInside" id="MHn-tR-DZd"/>
-                                        </connections>
-                                    </button>
-                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="LGP-f5-Rpd" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="150" width="86" height="30"/>
-                                        <state key="normal" title="Smaller"/>
-                                        <connections>
-                                            <action selector="acttionSmaller:" destination="BV1-FR-VrT" eventType="touchUpInside" id="7FF-ka-zC6"/>
-                                        </connections>
-                                    </button>
-                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="INY-yB-dfk" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="225" width="86" height="30"/>
-                                        <state key="normal" title=" Separate"/>
-                                        <connections>
-                                            <action selector="actionSeparate:" destination="BV1-FR-VrT" eventType="touchUpInside" id="Mej-ZW-D19"/>
+                                            <action selector="coloursPressed:" destination="BV1-FR-VrT" eventType="touchUpInside" id="6my-LZ-lzF"/>
                                         </connections>
                                     </button>
                                 </subviews>
                                 <viewLayoutGuide key="safeArea" id="Lc2-MO-dIZ"/>
-                                <color key="backgroundColor" systemColor="systemOrangeColor"/>
+                                <userDefinedRuntimeAttributes>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                                        <integer key="value" value="10"/>
+                                    </userDefinedRuntimeAttribute>
+                                </userDefinedRuntimeAttributes>
                             </stackView>
-                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="45" id="ZaU-Q0-fXH">
-                                <rect key="frame" x="392" y="45" width="55" height="255"/>
+                            <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" distribution="equalSpacing" id="ZaU-Q0-fXH" customClass="MyStackView" customModule="Starfield_Simulation" customModuleProvider="target">
+                                <rect key="frame" x="319" y="45" width="128" height="255"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMinX="YES"/>
                                 <subviews>
-                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="884-gM-RdI" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="0.0" width="55" height="30"/>
-                                        <state key="normal" title="Next"/>
+                                    <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="qAt-zr-OLA" customClass="MyStepperWrapper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="0.0" width="128" height="64"/>
+                                        <subviews>
+                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Collisions: Off" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="xgj-8k-BkF" customClass="MyStepperLabel" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="11" y="0.0" width="106" height="32"/>
+                                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                <nil key="textColor"/>
+                                                <nil key="highlightedColor"/>
+                                            </label>
+                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" maximumValue="100" translatesAutoresizingMaskIntoConstraints="NO" id="fWL-Xf-kUW" customClass="MyStepper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="17" y="32" width="94" height="32"/>
+                                                <connections>
+                                                    <action selector="collisionsStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="PKz-dx-9jm"/>
+                                                </connections>
+                                            </stepper>
+                                        </subviews>
+                                    </stackView>
+                                    <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="Xud-S0-c7K" customClass="MyStepperWrapper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="75" width="128" height="64"/>
+                                        <subviews>
+                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Gravity: 100%" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="u3R-kC-67L">
+                                                <rect key="frame" x="11" y="0.0" width="106.5" height="32"/>
+                                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                <color key="textColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                                <nil key="highlightedColor"/>
+                                            </label>
+                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="100" maximumValue="200" stepValue="10" translatesAutoresizingMaskIntoConstraints="NO" id="D9k-Dy-ds7" customClass="MyStepper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="17" y="32" width="94" height="32"/>
+                                                <connections>
+                                                    <action selector="gravityStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="fFw-YU-k38"/>
+                                                </connections>
+                                            </stepper>
+                                        </subviews>
+                                    </stackView>
+                                    <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="SQ2-Ow-WY5" customClass="MyStepperWrapper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="150" width="128" height="64"/>
+                                        <subviews>
+                                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Time: 100%" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="c37-K2-8Iq">
+                                                <rect key="frame" x="19" y="0.0" width="90" height="32"/>
+                                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                <color key="textColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                                <nil key="highlightedColor"/>
+                                            </label>
+                                            <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="100" minimumValue="-150" maximumValue="150" stepValue="10" translatesAutoresizingMaskIntoConstraints="NO" id="dmw-xo-h5F" customClass="MyStepper" customModule="Starfield_Simulation" customModuleProvider="target">
+                                                <rect key="frame" x="17" y="32" width="94" height="32"/>
+                                                <connections>
+                                                    <action selector="timeStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="vJj-lr-E4C"/>
+                                                </connections>
+                                            </stepper>
+                                        </subviews>
+                                    </stackView>
+                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="uyn-AQ-Vbt" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="225" width="128" height="30"/>
+                                        <state key="normal" title="Track Next"/>
                                         <connections>
-                                            <action selector="actionNextModel:" destination="BV1-FR-VrT" eventType="touchUpInside" id="G3D-Ct-f85"/>
-                                        </connections>
-                                    </button>
-                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="4Gd-eM-ieY" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="75" width="55" height="30"/>
-                                        <state key="normal" title="Brighter"/>
-                                        <connections>
-                                            <action selector="actionBrighter:" destination="BV1-FR-VrT" eventType="touchUpInside" id="jr3-Gf-Tqf"/>
-                                        </connections>
-                                    </button>
-                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Y5O-gl-es1" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="150" width="55" height="30"/>
-                                        <state key="normal" title="Collide"/>
-                                        <connections>
-                                            <action selector="actionCollide:" destination="BV1-FR-VrT" eventType="touchUpInside" id="go5-ND-Ggu"/>
-                                        </connections>
-                                    </button>
-                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="16c-55-NxV" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="225" width="55" height="30"/>
-                                        <state key="normal" title="Larger"/>
-                                        <connections>
-                                            <action selector="actionLarger:" destination="BV1-FR-VrT" eventType="touchUpInside" id="wmK-Wd-x3A"/>
+                                            <action selector="trackNextPressed:" destination="BV1-FR-VrT" eventType="touchUpInside" id="csw-BS-fyu"/>
                                         </connections>
                                     </button>
                                 </subviews>
                                 <viewLayoutGuide key="safeArea" id="Dcd-rR-eNp"/>
-                                <color key="backgroundColor" systemColor="systemGreenColor"/>
                             </stackView>
+                            <label opaque="NO" userInteractionEnabled="NO" alpha="0.0" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Pinch to manipulate space" textAlignment="center" lineBreakMode="wordWrap" numberOfLines="4" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" id="RIk-uL-jrC">
+                                <rect key="frame" x="0.0" y="295" width="480" height="25"/>
+                                <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES"/>
+                                <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                <color key="textColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="3C0-cp-GOg"/>
                     </view>
                     <connections>
-                        <outlet property="buttonBrighter" destination="4Gd-eM-ieY" id="1KX-tk-LQg"/>
-                        <outlet property="buttonCollide" destination="Y5O-gl-es1" id="Y5D-NK-rrm"/>
-                        <outlet property="buttonDarker" destination="CuK-gF-K6E" id="OVz-4v-GGG"/>
-                        <outlet property="buttonLarger" destination="16c-55-NxV" id="5hT-1p-Qy8"/>
-                        <outlet property="buttonNext" destination="884-gM-RdI" id="RrO-xo-pJ8"/>
-                        <outlet property="buttonPrevious" destination="VgA-AS-kDw" id="8Dl-u6-7nM"/>
-                        <outlet property="buttonSeparate" destination="INY-yB-dfk" id="9CI-Kl-bdN"/>
-                        <outlet property="buttonSmaller" destination="LGP-f5-Rpd" id="hxC-oq-Rpi"/>
+                        <outlet property="collisionsLabel" destination="xgj-8k-BkF" id="z4Y-5N-MRh"/>
+                        <outlet property="gravityLabel" destination="u3R-kC-67L" id="Nfh-ba-0V0"/>
+                        <outlet property="gravityStepper" destination="D9k-Dy-ds7" id="Wv9-7Z-6gk"/>
+                        <outlet property="pinchLabel" destination="RIk-uL-jrC" id="Neh-4v-2hT"/>
+                        <outlet property="timeLabel" destination="c37-K2-8Iq" id="xRm-TH-vyz"/>
+                        <outlet property="timeStepper" destination="dmw-xo-h5F" id="jtn-XB-3hQ"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="SZV-WD-TEh" sceneMemberID="firstResponder"/>
@@ -108,37 +177,41 @@
         </scene>
     </scenes>
     <designables>
-        <designable name="16c-55-NxV">
-            <size key="intrinsicContentSize" width="45" height="30"/>
+        <designable name="1QO-42-o1z">
+            <size key="intrinsicContentSize" width="94" height="32"/>
         </designable>
-        <designable name="4Gd-eM-ieY">
-            <size key="intrinsicContentSize" width="55" height="30"/>
+        <designable name="85A-hQ-P2f">
+            <size key="intrinsicContentSize" width="94" height="32"/>
         </designable>
-        <designable name="884-gM-RdI">
-            <size key="intrinsicContentSize" width="32" height="30"/>
+        <designable name="D9k-Dy-ds7">
+            <size key="intrinsicContentSize" width="94" height="32"/>
         </designable>
-        <designable name="CuK-gF-K6E">
-            <size key="intrinsicContentSize" width="46" height="30"/>
+        <designable name="Dfb-Ku-cJ9">
+            <size key="intrinsicContentSize" width="95.5" height="20.5"/>
         </designable>
-        <designable name="INY-yB-dfk">
-            <size key="intrinsicContentSize" width="66" height="30"/>
+        <designable name="L35-WB-kYq">
+            <size key="intrinsicContentSize" width="53" height="30"/>
         </designable>
-        <designable name="LGP-f5-Rpd">
-            <size key="intrinsicContentSize" width="52" height="30"/>
+        <designable name="OK5-kp-acj">
+            <size key="intrinsicContentSize" width="94" height="32"/>
         </designable>
-        <designable name="VgA-AS-kDw">
-            <size key="intrinsicContentSize" width="59" height="30"/>
+        <designable name="Qkw-Dn-dEs">
+            <size key="intrinsicContentSize" width="110.5" height="20.5"/>
         </designable>
-        <designable name="Y5O-gl-es1">
-            <size key="intrinsicContentSize" width="48" height="30"/>
+        <designable name="dmw-xo-h5F">
+            <size key="intrinsicContentSize" width="94" height="32"/>
+        </designable>
+        <designable name="fWL-Xf-kUW">
+            <size key="intrinsicContentSize" width="94" height="32"/>
+        </designable>
+        <designable name="nLz-rr-PPp">
+            <size key="intrinsicContentSize" width="79.5" height="20.5"/>
+        </designable>
+        <designable name="uyn-AQ-Vbt">
+            <size key="intrinsicContentSize" width="74" height="30"/>
+        </designable>
+        <designable name="xgj-8k-BkF">
+            <size key="intrinsicContentSize" width="106" height="20.5"/>
         </designable>
     </designables>
-    <resources>
-        <systemColor name="systemGreenColor">
-            <color red="0.20392156862745098" green="0.7803921568627451" blue="0.34901960784313724" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </systemColor>
-        <systemColor name="systemOrangeColor">
-            <color red="1" green="0.58431372549019611" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-        </systemColor>
-    </resources>
 </document>

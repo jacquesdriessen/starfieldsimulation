@@ -14,10 +14,58 @@ import ARKit
     override func layoutSubviews() {
         super.layoutSubviews()
         
-        layer.cornerRadius = frame.size.height / 2
+        layer.cornerRadius = 10
         clipsToBounds = true
-        backgroundColor = .darkGray
-        tintColor = .white
+        backgroundColor = .white
+        tintColor = .black
+    }
+}
+
+@IBDesignable class MyStepper: UIStepper
+{
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        value = 0
+        minimumValue = -1
+        maximumValue = 1
+        stepValue = 1
+        wraps = false
+        autorepeat = true
+    }
+    
+    func direction() -> Int {
+        let _direction = value
+        value = 0 // reset.
+        
+        return Int(_direction)
+    }
+}
+
+@IBDesignable class MyStepperLabel: UILabel
+{
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        textColor = .black
+    }
+}
+
+@IBDesignable class MyStepperWrapper: UIStackView
+{
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layer.cornerRadius = 10
+        backgroundColor = .white
+        alignment = .center
+        distribution = .fillEqually
+    }
+}
+
+@IBDesignable class MyStackView: UIStackView
+{
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layer.cornerRadius = 10
+        //backgroundColor = .blue
     }
 }
 
@@ -45,70 +93,72 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     var horizontalPan = false
     var verticalPan = false
     
-    var alpha: CGFloat = 5 // initialy show longer
+    var fadeIn = false // controls the fade direction
+    var alpha: CGFloat = 0.5
 
-    @IBOutlet weak var buttonLarger: MyButton!
-    @IBOutlet weak var buttonDarker: MyButton!
-    @IBOutlet weak var buttonCollide: MyButton!
-    @IBOutlet weak var buttonBrighter: MyButton!
-    @IBOutlet weak var buttonSmaller: MyButton!
-    @IBOutlet weak var buttonPrevious: MyButton!
-    @IBOutlet weak var buttonNext: MyButton!
-    @IBOutlet weak var buttonSeparate: MyButton!
-    
-    var myButtons = [MyButton]()
-    
-    @IBAction func actionDarker(_ sender: Any) {
+    @IBAction func arStepperValueChanged(_ sender: MyStepper) {
         showUI()
-        renderer.decreaseCameraExposure()
+        sender.direction() == 1 ? renderer.increaseCameraExposure() : renderer.decreaseCameraExposure()
     }
-    
-    @IBAction func actionBrighter(_ sender: Any) {
+ 
+    @IBAction func starSizeStepperValueChanged(_ sender: MyStepper) {
         showUI()
-        renderer.increaseCameraExposure()
+        sender.direction() == 1 ? renderer.increaseStarSize() : renderer.decreaseStarSize()
     }
-    
-    @IBAction func acttionSmaller(_ sender: Any) {
-        showUI()
-        renderer.decreaseStarSize()
-    }
-    
-    @IBAction func actionLarger(_ sender: Any) {
-        showUI()
-        renderer.increaseStarSize()
-    }
-    
-    @IBAction func actionPreviousModel(_ sender: Any) {
+    @IBAction func simulationStepperValueChanged(_ sender: MyStepper) {
         showUI()
         // disable false colour mode as going to next simulation
         renderer.disableFalseColours()
-        // make sure we are not processing stuff on the gpu before we modify data.
-        _simulation.previousmodel(semaphore: renderer.inFlightSemaphore)
+        sender.direction() == 1 ? _simulation.nextmodel(semaphore: renderer.inFlightSemaphore) : _simulation.previousmodel(semaphore: renderer.inFlightSemaphore) // semaphore to make sure we are not processing stuff on the gpu before we modify data.
+        // reset everything else
+        collisionsLabel.text = "Collisions: Off"
+        gravityStepper.value = 100
+        gravityLabel.text = "Gravity: 100%"
+        timeStepper.value = 100
+        timeLabel.text = "Time: 100%"
     }
     
-    @IBAction func actionNextModel(_ sender: Any) {
-        showUI()
-        // disable false colour mode as going to next simulation
-        renderer.disableFalseColours()
-        // make sure we are not processing stuff on the gpu before we modify data.
-        _simulation.nextmodel(semaphore: renderer.inFlightSemaphore)
+    @IBOutlet weak var collisionsLabel: MyStepperLabel!
+    
+    @IBAction func collisionsStepperValueChanged(_ sender: MyStepper) {
+      showUI()
+        if sender.direction() == 1 {
+            _simulation.collide(semaphore: renderer.inFlightSemaphore)
+            collisionsLabel.text = "Collisions: On"
+        } else {
+            _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore) // semaphore to make sure we are not processing stuff on the gpu before we modify data.
+            collisionsLabel.text = "Collisions: Off"
+        }
     }
     
-    @IBAction func actionCollide(_ sender: Any) {
+    @IBOutlet weak var gravityLabel: MyStepperLabel!
+    @IBOutlet weak var gravityStepper: UIStepper!
+    @IBAction func gravityStepperValueChanged(_ sender: UIStepper) {
         showUI()
-        // make sure we are not processing stuff on the gpu before we modify data.
-        _simulation.collide(semaphore: renderer.inFlightSemaphore)
+        gravityLabel.text = "Gravity: " + String (Int(sender.value)) + "%"
+        _simulation.gravity = Float(sender.value)
     }
     
-    @IBAction func actionSeparate(_ sender: Any) {
+    @IBOutlet weak var timeLabel: MyStepperLabel!
+    @IBOutlet weak var timeStepper: UIStepper!
+    @IBAction func timeStepperValueChanged(_ sender: UIStepper) {
         showUI()
-        // make sure we are not processing stuff on the gpu before we modify data.
-        _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
+        timeLabel.text = "Time: " + String (Int(sender.value)) + "%"
+        _simulation.speed = Float(sender.value)
     }
+    
+    @IBAction func coloursPressed(_ sender: MyButton) {
+        renderer.toggleFalseColours(_split: UInt(_simulation.split))
+    }
+    
+    @IBAction func trackNextPressed(_ sender: MyButton) {
+        _simulation.track = (_simulation.track + 1) % 4
+    }
+    
+    @IBOutlet weak var pinchLabel: UILabel!
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        myButtons = [buttonLarger, buttonDarker, buttonCollide, buttonBrighter, buttonSmaller, buttonPrevious, buttonNext, buttonSeparate]
 
         // Set the view's delegate
         session = ARSession()
@@ -124,22 +174,22 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         guard _view.device != nil else {
             return
         }
-        
+        /*
         let doubleTapGesture = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleDoubleTap(gestureRecognize:)))
         view.addGestureRecognizer(doubleTapGesture)
         doubleTapGesture.numberOfTapsRequired = 2
-
+*/
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleTap(gestureRecognize:)))
         view.addGestureRecognizer(tapGesture)
         tapGesture.numberOfTapsRequired = 1
-        tapGesture.require(toFail: doubleTapGesture)
+  //      tapGesture.require(toFail: doubleTapGesture)
    
         let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(ViewController.handlePinch(gestureRecognize:)))
         view.addGestureRecognizer(pinchGesture)
-        
+        /*
         let panGesture = UIPanGestureRecognizer(target: self, action: #selector(ViewController.handlePan(gestureRecognize:)))
         view.addGestureRecognizer(panGesture)
-        panGesture.require(toFail: tapGesture)
+        panGesture.require(toFail: tapGesture)*/
    
    }
 
@@ -199,6 +249,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         _commandQueue = renderer.device.makeCommandQueue()
     }
     
+    /*
     @objc
     func handleDoubleTap(gestureRecognize: UITapGestureRecognizer) {
         guard gestureRecognize.view != nil else {
@@ -225,18 +276,18 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             
         }
     }
+    */
     
     @objc
     func handleTap(gestureRecognize: UITapGestureRecognizer) {
         guard gestureRecognize.view != nil else {
             return
         }
-        
         showUI()
-        
+        /*
         if gestureRecognize.state == .began {
         }
-        
+      
         if gestureRecognize.state == .ended {
             let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates -100...100
             let y = 200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height  // coordinates -100...100
@@ -268,33 +319,34 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
             } else if x > 80 && y < -80 { // unambiguous top right corner
                 renderer.increaseCameraExposure()
             }*/
-        }
+        } */
     }
 
-    
     @objc
     func handlePinch(gestureRecognize: UIPinchGestureRecognizer) {
         guard gestureRecognize.view != nil else {
             return
         }
         
+
         _simulation.squeeze(_pinch: Float(gestureRecognize.scale))
         
         if gestureRecognize.state == .began {
- 
+            pinchLabel.alpha = 0.5
         }
         
         if gestureRecognize.state == .ended {
             _simulation.squeeze(_pinch:1)
+            pinchLabel.alpha = 0
         }
     }
-    
+    /*
     @objc
     func handlePan(gestureRecognize: UIPanGestureRecognizer) {
         guard gestureRecognize.view != nil else {
             return
         }
-        
+        /*
         let x : Float = Float(200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width) // coordinates -100...100
         let y : Float = Float(200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height)  // coordinates -100...100
         
@@ -326,9 +378,9 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         if gestureRecognize.state == .ended {
             horizontalPan = false
             verticalPan = false
-        }
+        } */
     }
-
+ */
    
     // MARK: - MTKViewDelegate
     
@@ -338,28 +390,39 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     }
     
     func setAlphaUI() {
-        for i in myButtons {
-            i.alpha = min(alpha, CGFloat(1)) // min so we can use alpha > 1 to "show the UI longer" at the start.
+        for v:UIView in view.subviews {
+            if v != pinchLabel {
+                v.alpha =  min(alpha, CGFloat(1)) // min so we can use alpha > 1 to "show the UI longer" at the start.
+            }
         }
     }
     
-    func fadeOutUI() {
-        if alpha > 0 {
-            alpha = max(alpha - CGFloat(0.005), CGFloat(0))
-            setAlphaUI()
+    func fadeUI() {
+        if (fadeIn) {
+            if alpha < 0.5 {
+                alpha = min(alpha + CGFloat(0.025), CGFloat(1))
+                setAlphaUI()
+            } else {
+                fadeIn = false // fadeout again
+            }
+            
+        } else {
+            if alpha > 0 {
+                alpha = max(alpha - CGFloat(0.002), CGFloat(0))
+                setAlphaUI()
+            }
         }
     }
     
     func showUI() {
-        alpha = 1
-        setAlphaUI()
+        fadeIn = true
     }
     
     // Called whenever the view needs to render
     func draw(in view: MTKView) {
         
-        // first fade out the user inter
-        fadeOutUI()
+        // hanlde fadeIn/Out of UI
+        fadeUI()
         
         // update position 20cms in front of the camera using the camera's current position, "finger"
         if let currentFrame = session.currentFrame {
