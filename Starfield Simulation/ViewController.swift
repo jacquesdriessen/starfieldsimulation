@@ -16,8 +16,8 @@ import ARKit
         
         layer.cornerRadius = 10
         clipsToBounds = true
-        backgroundColor = .white
-        tintColor = .black
+        backgroundColor = .black
+        tintColor = .white
     }
 }
 
@@ -45,7 +45,7 @@ import ARKit
 {
     override func layoutSubviews() {
         super.layoutSubviews()
-        textColor = .black
+        textColor = .white
     }
 }
 
@@ -54,7 +54,7 @@ import ARKit
     override func layoutSubviews() {
         super.layoutSubviews()
         layer.cornerRadius = 10
-        backgroundColor = .white
+        backgroundColor = .black
         alignment = .center
         distribution = .fillEqually
     }
@@ -65,7 +65,6 @@ import ARKit
     override func layoutSubviews() {
         super.layoutSubviews()
         layer.cornerRadius = 10
-        //backgroundColor = .blue
     }
 }
 
@@ -94,7 +93,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     var verticalPan = false
     
     var fadeIn = false // controls the fade direction
-    var alpha: CGFloat = 0.5
+    var alpha: CGFloat = 1
 
     @IBAction func arStepperValueChanged(_ sender: MyStepper) {
         showUI()
@@ -332,7 +331,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
         _simulation.squeeze(_pinch: Float(gestureRecognize.scale))
         
         if gestureRecognize.state == .began {
-            pinchLabel.alpha = 0.5
+            pinchLabel.alpha = 1.0
         }
         
         if gestureRecognize.state == .ended {
@@ -399,7 +398,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate {
     
     func fadeUI() {
         if (fadeIn) {
-            if alpha < 0.5 {
+            if alpha < 1.0 {
                 alpha = min(alpha + CGFloat(0.025), CGFloat(1))
                 setAlphaUI()
             } else {
