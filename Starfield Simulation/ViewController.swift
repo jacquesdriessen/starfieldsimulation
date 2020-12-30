@@ -97,7 +97,8 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     var alpha: CGFloat = 1
     
     var blackHoleMode: Bool = false
-    var blackHoleScreenCoordinates: vector_float2 = vector_float2(0,0)
+    var fingerScreenCoordinates: CGPoint = CGPoint(x: 0,y: 0)
+    var fingerWorldCoordinates: vector_float4 = vector_float4(0,0,0,0)
 
     @IBAction func arStepperValueChanged(_ sender: MyStepper) {
         showUI()
@@ -283,7 +284,10 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         guard gestureRecognize.view != nil else {
             return
         }
-           
+        
+        
+        fingerScreenCoordinates = gestureRecognize.location(in: self.view)
+
         if gestureRecognize.state == .began {
         }
         
@@ -311,8 +315,14 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         guard gestureRecognize.view != nil else {
             return
         }
+
         showUI()
- 
+        fingerScreenCoordinates = gestureRecognize.location(in: self.view)
+
+        if (_simulation.halt == true) { // need a different place / method I guess, this is ia hack
+            _simulation.halt = false
+        }
+    
         /*
         if gestureRecognize.state == .began {
         }
@@ -357,16 +367,17 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             return
         }
         
-        // need to think of what to do with screen coordinates + how to keep on tracking things, e.g. should "enable track mode", then send someone screen coordinates (in UI), then in the loop do calculation.
+        showUI()
+        fingerScreenCoordinates = gestureRecognize.location(in: self.view)
 
-        print(screenCoordinatesToWorldCoordinates(screenCoordinates: gestureRecognize.location(in: self.view)))
-        
         if gestureRecognize.state == .began {
             blackHoleMode = true
+            _simulation.interact = true
         }
  
         if gestureRecognize.state == .ended {
             blackHoleMode = false
+            _simulation.interact = false
         }
     }
  
@@ -377,6 +388,9 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             return
         }
         
+        showUI()
+        fingerScreenCoordinates = gestureRecognize.location(in: self.view)
+
         // WE NEED TO MOVE THIS SOMEWHERE ELSE
         // _simulation.squeeze(_pinch: Float(gestureRecognize.scale))
         
@@ -390,7 +404,6 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             
             
         }
-        
         
         // Show UI explanation
         if gestureRecognize.state == .began {
@@ -407,7 +420,10 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     func handlePan(gestureRecognize: UIPanGestureRecognizer) {
         guard gestureRecognize.view != nil else {
             return
-        }
+
+        showUI()
+        fingerScreenCoordinates = gestureRecognize.location(in: self.view)
+
         /*
         let x : Float = Float(200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width) // coordinates -100...100
         let y : Float = Float(200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height)  // coordinates -100...100
@@ -471,9 +487,21 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         return projection
     }
     
-    
-    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 {
-        return mirrorMatrix(x: true, y: true, z: true) * cameraMatrix().inverse * normalisedInverseMatrix(fullmatrix: projectionMatrix()) * vector_float4(Float(screenCoordinates.x/view.frame.size.width), Float(screenCoordinates.y/view.frame.size.height), 0, 1)
+    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 { //can't figure this out, so let's use something else
+
+        let x : Float = 2 * Float(screenCoordinates.x) / Float(view.frame.size.width) - 1
+        let y : Float = 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1
+        
+        let inverse_transform: float4x4 =
+            extractOrientationMatrix(fullmatrix: cameraMatrix()) *
+            translationMatrix(translation: vector_float3(0,0,-0.5)) *
+            extractOrientationMatrix(fullmatrix: cameraMatrix()).inverse *
+            extractOrientationMatrix(fullmatrix: cameraMatrix()) * // rotate back to device.
+            mirrorMatrix(x: true, y: true, z: true) * // and since we do the reverse, all is mirrored, not sure why that is.
+            cameraMatrix().inverse * // undo the camera stuff
+            projectionMatrix().inverse // undo the projection
+
+        return inverse_transform * vector_float4(x,y,projectionMatrix().columns.3.z,0) // inverse projection https://jsantell.com/3d-projection/
     }
 
     func setAlphaUI() {
@@ -508,16 +536,20 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     // Called whenever the view needs to render
     func draw(in view: MTKView) {
         
-        // hanlde fadeIn/Out of UI
+        // handle fadeIn/Out of UI
         fadeUI()
         
-        // update position 20cms in front of the camera using the camera's current position, "finger"
+        // handle screen to world for finger
+        fingerWorldCoordinates = screenCoordinatesToWorldCoordinates(screenCoordinates: fingerScreenCoordinates)
+        
+        // pass camera position through to simulation, need to be smarter about this.
         if let currentFrame = session.currentFrame {
             _simulation.camera = currentFrame.camera.transform
         }
                
         if _simulation != nil {
-            renderer.draw(positionsBuffer1: _simulation.getStablePositionBuffer1(), positionsBuffer2: _simulation.getStablePositionBuffer2(), interpolation: _simulation.getInterpolation(), numBodies: Int(_config.numBodies), inView: _view)
+            
+            renderer.draw(positionsBuffer1: _simulation.getStablePositionBuffer1(), positionsBuffer2: _simulation.getStablePositionBuffer2(), interpolation: _simulation.getInterpolation(), numBodies: Int(_config.numBodies), inView: _view, finger: fingerWorldCoordinates)
         }
         
         if _commandQueue != nil {

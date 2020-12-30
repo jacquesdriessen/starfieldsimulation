@@ -75,6 +75,9 @@ class StarSimulation : NSObject {
     var speed : Float = 100 // percentage
     var gravity: Float = 100 // percentage
     var pinch: Float = 1 // pinching to "squeeze" space.
+
+    var rotateGalaxies = 0
+    var rotateParticles = 0
     
     var movement: SpecatorMovement = SpecatorMovement(position: vector_float4(0,0,0,0), velocity: vector_float4(0,0,0,0))
 
@@ -138,7 +141,63 @@ class StarSimulation : NSObject {
         return x_product
     }
     
+    func addparticles(index: Int) {
+        let rightInFrontOfCamera = simd_mul(camera, translationMatrix(translation:vector_float3(0,0,-0.5))) //0.5 meters in front of the
+       
+        let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let positions2 = _positions[_oldestBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let velocities2 = _velocities[_oldestBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let positions3 = _positions[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let velocities3 = _velocities[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+
+        let position_transformation = rightInFrontOfCamera
+        positions[index] = position_transformation * vector_float4(0, 0, 0, 0)
+        positions[index].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
+
+        velocities[index] = vector_float4(0, 0, 0, 0)
+    
+        
+        // apply the rotation & translation + go to camera coordinates.
+        let temp_radius = positions[index].w // save this value - as we use this for something else.
+        positions[index].w = 1 // if we don't do this, would mess up the transformation
+//        velocities[index].w = 1 // otherwise this wouldn't work either.
+        positions[index] = position_transformation * positions[index]
+  //      velocities[index] = velocity_transformation * velocities[index]
+        positions[index].w = temp_radius // restores .w
+        
+        // in case we are "on halt", we still want it to display, e.g. copy to all buffers
+        positions2[index] = positions[index]
+        positions3[index] = positions[index]
+        velocities2[index] = velocities[index]
+        velocities3[index] = velocities[index]
+
+        
+        
+    }
+    
     func makegalaxy(first: Int, last: Int, positionOffset: vector_float3 = vector_float3(0,0,0), velocityOffset: vector_float3 = vector_float3(0,0,0), axis: vector_float3 = vector_float3(0,0,0), flatten: Float = 1, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1, collision_enabled: Bool = false) {
+        
+        // reset simulation
+        _oldBufferIndex = 0
+        _newBufferIndex = 1
+        _oldestBufferIndex = 2
+        
+        blockBegin = 0 // make sure we start calculations from the beginning.
+        advanceIndex = true // make sure we start calculations from the beginning.
+        
+        track = 0 // stop tracking
+        collide = collision_enabled
+        speed = 100 // back to default speed
+        gravity = 100 // back to default gravity
+        pinch = 1 // no squeezing space anymore
+        rotateGalaxies = 0 // for placing galaxies
+
+        makegalaxyonlyaddparticles(first: first, last: last, positionOffset: positionOffset, velocityOffset: velocityOffset, axis: axis, flatten: flatten, prescale: prescale, vrescale: vrescale, vrandomness: vrandomness, squeeze: squeeze, collision_enabled: collision_enabled)
+    }
+        
+
+    func makegalaxyonlyaddparticles(first: Int, last: Int, positionOffset: vector_float3 = vector_float3(0,0,0), velocityOffset: vector_float3 = vector_float3(0,0,0), axis: vector_float3 = vector_float3(0,0,0), flatten: Float = 1, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1, collision_enabled: Bool = false) {
         let pscale : Float = _config.clusterScale * prescale
         let vscale : Float = _config.velocityScale * pscale * vrescale
         let inner : Float = 2.5 * pscale
@@ -152,19 +211,6 @@ class StarSimulation : NSObject {
         let velocity_transformation = rightInFrontOfCamera * translationMatrix(translation: velocityOffset * _config.clusterScale * _config.velocityScale) * rotation_matrix
         
         split = UInt32(first) // split will always be right before the "last galaxy".
-        
-        _oldBufferIndex = 0
-        _newBufferIndex = 1
-        _oldestBufferIndex = 2
-
-        blockBegin = 0 // make sure we start calculations from the beginning.
-        advanceIndex = true // make sure we start calculations from the beginning.
-        
-        track = 0 // stop tracking
-        collide = collision_enabled
-        speed = 100 // back to default speed
-        gravity = 100 // back to default gravity
-        pinch = 1 // no squeezing space anymore
         
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -353,6 +399,14 @@ class StarSimulation : NSObject {
     }
 
     func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) {
+        if (halt && interact) { // need to clearn this up, this is nonsensical this way
+            rotateParticles += 1
+            if rotateParticles  > _config.numBodies  {
+                rotateParticles = 0
+            }
+            
+            addparticles(index: rotateParticles)
+        }
         if (!halt) {
             // could be done smarter, e.g. make sure we only wait if we need to advance the frame, now it just waits advancing + pushing stuff to the gpu every compute cyle, but otherwise we get artefacts (particles not advancing, because of advancing frames before computations have finished.
             let _ = blockSemaphore.wait(timeout: DispatchTime.distantFuture)
@@ -388,27 +442,46 @@ class StarSimulation : NSObject {
                     params[0].damping = 1/_config.damping
                 }
                 
-                // THIS CREATES BLACK HOLE, need to look at this code - incorporate it somehow
                 if (interact) {
+ /* option 1
+                    // THIS CREATES BLACK HOLE, need to look at this code - incorporate it somehow
+                    
                     // interact with (both if we have 2) galaxies
                     var translation = matrix_identity_float4x4
-                    translation.columns.3.z = -0.01 // Create a transform with a translation of 0.01 meters behindthe camera
+                    translation.columns.3.z = -1// Create a transform with a translation of 0.01 meters behindthe camera
                     let rightInFrontOfCamera = simd_mul(camera, translation)
-                    
+                    print("black hole")
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].x = rightInFrontOfCamera.columns.3.x
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].y = rightInFrontOfCamera.columns.3.y
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].z = rightInFrontOfCamera.columns.3.z
-                    _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].w = 23 // roughly 10% of the weight of the entire rest of the simulation combined
+                    _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].w = 23*3// roughly 10% of the weight of the entire rest of the simulation combined
                     
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].x = rightInFrontOfCamera.columns.3.x
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].y = rightInFrontOfCamera.columns.3.y
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].z = rightInFrontOfCamera.columns.3.z
-                    _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].w = 40
+                    _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].w = 23*3
                 } else {
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[0].w = 0
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].w = 0
+ 
+*/
+                    // option 2 , place galaxy
+                    
+                    /*
+                    rotateGalaxies += Int(_config.numBodies)/8
+                    if rotateGalaxies  > _config.numBodies  {
+                        rotateGalaxies = 0
+                    }
+
+                    makegalaxyonlyaddparticles(first: rotateGalaxies, last: rotateGalaxies + Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(0, 0, 0), flatten: 0.05, prescale: 0.125, squeeze: 2) */
+                    
+                    
+    //option 3  -- place stars
+                    halt = true
                 }
                 
+ 
+ 
                 
                 // all spectator movement
                 

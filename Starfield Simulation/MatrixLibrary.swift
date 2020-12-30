@@ -27,13 +27,7 @@ func extractOrientationMatrix(fullmatrix: float4x4) -> float4x4 {
 }
 
 func extractTranslationMatrix(fullmatrix: float4x4) -> float4x4 {
-    
-    var matrix_extract_translation = matrix_identity_float4x4
-    matrix_extract_translation.columns.0.x = 0
-    matrix_extract_translation.columns.1.y = 0
-    matrix_extract_translation.columns.2.z = 0
-    
-    return fullmatrix * matrix_extract_translation
+    return translationMatrix(translation: fullmatrix.columns.3)
 }
 
 func extractScaling(fullmatrix: float4x4) -> vector_float4 {
@@ -54,7 +48,8 @@ func translationMatrix(translation : vector_float4) -> float4x4 {
     _translation.columns.3.x = translation.x
     _translation.columns.3.y = translation.y
     _translation.columns.3.z = translation.z
-    
+    _translation.columns.3.w = translation.w
+   
     return _translation
 }
 
@@ -70,14 +65,6 @@ func mirrorMatrix(x: Bool = false, y: Bool = false, z: Bool = false) -> float4x4
     mirror_matrix.columns.2.z = z ? -1 : 1
     
     return mirror_matrix
-}
-
-func normalisedInverseMatrix(fullmatrix: float4x4) -> float4x4 {
-    var inverse_matrix : float4x4 = fullmatrix.inverse
-    
-    inverse_matrix = (1 / inverse_matrix.columns.3.w) * inverse_matrix  // for our matrices, this needs to be one, but project matrices mess this up
-    
-    return inverse_matrix
 }
 
 func scaleMatrix(scale : Float) -> float4x4 {

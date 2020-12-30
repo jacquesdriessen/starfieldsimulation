@@ -127,10 +127,10 @@ fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
     half4 y = half4(1.0h, 0.7h, 0.3h, fragColor.w);
     half  a = fragColor.w;
 
-    if (inColor.radius > 10) { // this is when we interact, don't show
-        x = half4(.0h, .0h, .0h, x.w);
-        y = half4(.0h, .0h, .0h, y.w);
-        fragColor = half4(.0h, .0h, .0h, fragColor.w);
+    if (inColor.radius > 10) { // this is when we interact, don't show.... actually that's the whole point right?, so show in bright yellow.
+        x = half4(1.0h, 1.0h, .0h, x.w);
+        y = half4(1.0h, 1.0h, .0h, y.w);
+        fragColor = half4(1.0h, 1.0h, .0h, fragColor.w);
     } else if (inColor.radius > 2.5) { // black hole is green
         x = half4(.0h, 1.0h, .0h, x.w);
         y = half4(.0h, 1.0h, .0h, y.w);

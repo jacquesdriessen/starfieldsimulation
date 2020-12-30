@@ -158,7 +158,7 @@ class Renderer {
         viewportSizeDidChange = true
     }
 
-    func draw(positionsBuffer1: MTLBuffer, positionsBuffer2: MTLBuffer, interpolation: Float, numBodies: Int, inView: MTKView)
+    func draw(positionsBuffer1: MTLBuffer, positionsBuffer2: MTLBuffer, interpolation: Float, numBodies: Int, inView: MTKView, finger: vector_float4)
     {
         // Wait to ensure only kMaxBuffersInFlight are getting processed by any stage in the Metal
         //   pipeline (App, Metal, Drivers, GPU, etc)
@@ -195,7 +195,7 @@ class Renderer {
                
                 drawStars(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer1: positionsBuffer1, positionsBuffer2: positionsBuffer2, interpolation: interpolation)
 
-                drawInteractive(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer1: positionsBuffer1, positionsBuffer2: positionsBuffer2, interpolation: interpolation)
+                drawInteractive(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer1: positionsBuffer1, positionsBuffer2: positionsBuffer2, interpolation: interpolation, finger: finger)
 
                
                 // We're done encoding commands
@@ -426,6 +426,7 @@ class Renderer {
             * scaleMatrix(scale: 1/_renderScale)
 
         uniforms.pointee.projectionMatrix = frame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
+        
         uniforms.pointee.starSize = starSize
     }
 
@@ -527,7 +528,7 @@ class Renderer {
         renderEncoder.popDebugGroup()
     }
      
-    func drawInteractive(renderEncoder: MTLRenderCommandEncoder, numBodies: Int, positionsBuffer1: MTLBuffer, positionsBuffer2: MTLBuffer, interpolation: Float) {
+    func drawInteractive(renderEncoder: MTLRenderCommandEncoder, numBodies: Int, positionsBuffer1: MTLBuffer, positionsBuffer2: MTLBuffer, interpolation: Float, finger: vector_float4) {
         // Push a debug group allowing us to identify render commands in the GPU Frame Capture tool
         renderEncoder.pushDebugGroup("Rays")
         
@@ -545,17 +546,22 @@ class Renderer {
                 return
             }
 
-            let transform = currentFrame.camera.transform * simd_float4x4(simd_float4(1,0,0,0), // note this is column by column if I understood correctly
-                                                                          simd_float4(0,1,0,0),
-                                                                          simd_float4(0,0,1,0),
-                                                                          simd_float4(0.0, 0.0, -0.01, 1)) // translation.
+            let transform = currentFrame.camera.transform
             
-            let camera_position = transform.columns.3
-           // print(camera_position.x, camera_position.y, camera_position.z)
-         //   camera_position.z = camera_position.z - 0.01
             
+            let actual_camera_position = transform*vector_float4(0,0,0,1) // faster is just to take transform.columns.3
+            
+            let camera_position = extractOrientationMatrix(fullmatrix: transform) *
+                translationMatrix(translation: vector_float3(0.0,0.0,-0.5)) *
+                extractOrientationMatrix(fullmatrix: transform).inverse * actual_camera_position
+
+            
+           // print(camera_position - finger)
+            //print(finger)
+       
             // black holes
             
+            //print(actual_camera_position)
             let positions1 = positionsBuffer1.contents().assumingMemoryBound(to: vector_float4.self)
             let positions2 = positionsBuffer2.contents().assumingMemoryBound(to: vector_float4.self)
             let blackhole1 = (1-interpolation) * positions1[numBodies-1] + interpolation * positions2[numBodies-1]
@@ -566,14 +572,16 @@ class Renderer {
             }
 
             let blackhole2 = (1-interpolation) * positions1[index_blackhole2] + interpolation * positions2[index_blackhole2]
+            let attractor = (1-interpolation) * positions1[0] + interpolation * positions2[0]
 
+            
             
            //print(split, numBodies)
 
-            vertices[0] = InteractiveVertex(position: camera_position, color: [0, 1, 0, 1])
+            vertices[0] = InteractiveVertex(position: attractor, color: [0, 1, 0, 1])
             vertices[1] = InteractiveVertex(position: blackhole1, color: [0, 0, 1, 1])
-            vertices[2] = InteractiveVertex(position: blackhole2, color: [1, 0, 0, 1])
-            vertices[3] = InteractiveVertex(position: camera_position, color: [0, 1, 0, 1])
+            vertices[2] = InteractiveVertex(position: attractor, color: [1, 0, 0, 1])
+            vertices[3] = InteractiveVertex(position: blackhole2, color: [0, 1, 0, 1])
             
             /*
             vertices[3] = InteractiveVertex(position: camera_position, color: [0, 0, 1, 1])
