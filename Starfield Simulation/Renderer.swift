@@ -193,7 +193,8 @@ class Renderer {
                
                 drawStars(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer1: positionsBuffer1, positionsBuffer2: positionsBuffer2, interpolation: interpolation)
 
-                drawInteractive(renderEncoder: renderEncoder)
+                // currently can almost do some laserpointer stuff
+                //drawInteractive(renderEncoder: renderEncoder, numBodies: numBodies, positionsBuffer1: positionsBuffer1, positionsBuffer2: positionsBuffer2, interpolation: interpolation)
 
                
                 // We're done encoding commands
@@ -528,7 +529,7 @@ class Renderer {
         renderEncoder.popDebugGroup()
     }
      
-    func drawInteractive(renderEncoder: MTLRenderCommandEncoder) {
+    func drawInteractive(renderEncoder: MTLRenderCommandEncoder, numBodies: Int, positionsBuffer1: MTLBuffer, positionsBuffer2: MTLBuffer, interpolation: Float) {
         // Push a debug group allowing us to identify render commands in the GPU Frame Capture tool
         renderEncoder.pushDebugGroup("Rays")
         
@@ -538,16 +539,68 @@ class Renderer {
         renderEncoder.setDepthStencilState(interactiveDepthState)
         
         let vertices = interactiveVertexBuffer.contents().assumingMemoryBound(to: InteractiveVertex.self)
+
+        //camera
+        guard let currentFrame = session.currentFrame else {
+            return
+        }
+
+        let transform = currentFrame.camera.transform * simd_float4x4(simd_float4(1,0,0,0), // note this is column by column if I understood correctly
+                                                                      simd_float4(0,1,0,0),
+                                                                      simd_float4(0,0,1,0),
+                                                                      simd_float4(0.0, 0.0, -0.01, 1)) // translation.
         
-        vertices[0] = InteractiveVertex(position: [-1, -1, -1, 0], color: [1, 0, 0, 1])
-        vertices[1] = InteractiveVertex(position: [0, 1, -1, 0], color: [0, 1, 0, 1])
-        vertices[2] = InteractiveVertex(position: [1, -1, -1,0 ], color: [0, 0, 1, 1])
-        vertices[3] = InteractiveVertex(position: [-1, -1, -1, 0], color: [1, 0, 0, 1])
+        let camera_position = transform.columns.3
+       // print(camera_position.x, camera_position.y, camera_position.z)
+     //   camera_position.z = camera_position.z - 0.01
+        
+        // black holes
+        
+        let positions1 = positionsBuffer1.contents().assumingMemoryBound(to: vector_float4.self)
+        let positions2 = positionsBuffer2.contents().assumingMemoryBound(to: vector_float4.self)
+        let blackhole1 = (1-interpolation) * positions1[numBodies-1] + interpolation * positions2[numBodies-1]
+        
+        var index_blackhole2 = numBodies - 1
+        if split > 0 {
+            index_blackhole2 = Int(split - 1)
+        }
+
+        let blackhole2 = (1-interpolation) * positions1[index_blackhole2] + interpolation * positions2[index_blackhole2]
+
+        //print(split, numBodies)
+
+        vertices[0] = InteractiveVertex(position: camera_position, color: [0, 1, 0, 1])
+        vertices[1] = InteractiveVertex(position: blackhole1, color: [0, 0, 1, 1])
+        vertices[2] = InteractiveVertex(position: blackhole2, color: [1, 0, 0, 1])
+        vertices[3] = InteractiveVertex(position: camera_position, color: [0, 1, 0, 1])
+        
+        /*
+        vertices[3] = InteractiveVertex(position: camera_position, color: [0, 0, 1, 1])
+        vertices[4] = InteractiveVertex(position: blackhole2, color: [0, 1, 0, 1])
+        vertices[5] = InteractiveVertex(position: camera_position, color: [0, 0, 1, 1])
+        vertices[6] = InteractiveVertex(position: blackhole2, color: [0, 1, 0, 1])
+        vertices[7] = InteractiveVertex(position: blackhole1, color: [0, 1, 0, 1])
+        vertices[8] = InteractiveVertex(position: blackhole2, color: [0, 1, 0, 1]) */
+        /*
+        vertices[0] = InteractiveVertex(position: camera_position, color: [1, 0, 0, 1])
+        vertices[1] = InteractiveVertex(position: [-0.0025,-0.0025, -0.5, 0], color: [0, 1, 0, 1])
+        vertices[2] = InteractiveVertex(position: [-0.0025,0.0025, -0.5, 0 ], color: [0, 0, 1, 1])
+        vertices[3] = InteractiveVertex(position: camera_position, color: [1, 0, 0, 1])
+        vertices[4] = InteractiveVertex(position: [-0.0025,0.0025, -0.5, 0], color: [0, 1, 0, 1])
+        vertices[5] = InteractiveVertex(position: [0.0025,0.0025, -0.5, 0 ], color: [0, 0, 1, 1])
+        vertices[6] = InteractiveVertex(position: camera_position, color: [1, 0, 0, 1])
+        vertices[7] = InteractiveVertex(position: [0.0025,0.0025, -0.5, 0], color: [0, 1, 0, 1])
+        vertices[8] = InteractiveVertex(position: [0.0025,-0.0025, -0.5,0 ], color: [0, 0, 1, 1])
+        vertices[9] = InteractiveVertex(position: camera_position, color: [1, 0, 0, 1])
+        vertices[10] = InteractiveVertex(position: [0.0025,-0.0025, -0.5, 0], color: [0, 1, 0, 1])
+        vertices[11] = InteractiveVertex(position: [-0.0025,-0.0025, -0.5, 0 ], color: [0, 0, 1, 1]) */
         
         renderEncoder.setVertexBuffer(interactiveVertexBuffer, offset: 0, index: 0)
         renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: 1)
 
+        //renderEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 12)
         renderEncoder.drawPrimitives(type: .lineStrip, vertexStart: 0, vertexCount: 4)
+        
         
         renderEncoder.popDebugGroup()
     }

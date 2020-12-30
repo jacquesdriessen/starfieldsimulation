@@ -89,7 +89,7 @@ vertex StarColorInOut starVertexShader(
     // Make position a float4 to perform 4x4 matrix math on it
     float4 position = (1.0-interpolation)*float4(positions1[vertexID].xyz, 1.0) + interpolation*float4(positions2[vertexID].xyz, 1.0); // (1) interpolates as we can do less computation than we need to do rendering
     
-  //  float4x4 modelMatrix = instanceUniforms[iid].modelMatrix;
+  //  float4x4 modelMatrix = instanceUniforms[iid].modelMatrix; // in case we have 3d stars, this can have things like rotation in it.
     float4x4 modelViewMatrix = sharedUniforms.viewMatrix; // * modelMatrix;
     
     // Calculate the position of our vertex in clip space and output for clipping and rasterization
@@ -189,6 +189,6 @@ vertex InteractiveInOut interactiveVertexShader(const device InteractiveVertex *
 
 
 fragment half4 interactiveFragmentShader(InteractiveInOut interpolatedIn [[stage_in]]) {
-    return interpolatedIn.color;
+    return half4(interpolatedIn.color.xyz, 1);
 }
 
