@@ -3,7 +3,9 @@
     <device id="retina5_9" orientation="landscape" appearance="light"/>
     <dependencies>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="17703"/>
+        <capability name="Image references" minToolsVersion="12.0"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <scenes>
@@ -64,6 +66,7 @@
                                             </label>
                                             <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="100" minimumValue="-150" maximumValue="150" stepValue="10" translatesAutoresizingMaskIntoConstraints="NO" id="dmw-xo-h5F">
                                                 <rect key="frame" x="17" y="32" width="94" height="32"/>
+                                                <color key="backgroundColor" systemColor="systemGrayColor"/>
                                                 <connections>
                                                     <action selector="timeStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="vJj-lr-E4C"/>
                                                 </connections>
@@ -81,6 +84,7 @@
                                             </label>
                                             <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" value="100" maximumValue="200" stepValue="10" translatesAutoresizingMaskIntoConstraints="NO" id="D9k-Dy-ds7">
                                                 <rect key="frame" x="17" y="32" width="94" height="32"/>
+                                                <color key="backgroundColor" systemColor="systemGrayColor"/>
                                                 <connections>
                                                     <action selector="gravityStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="fFw-YU-k38"/>
                                                 </connections>
@@ -90,7 +94,7 @@
                                 </subviews>
                                 <viewLayoutGuide key="safeArea" id="Dcd-rR-eNp"/>
                             </stackView>
-                            <label opaque="NO" userInteractionEnabled="NO" alpha="0.0" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Pinch to manipulate space" textAlignment="center" lineBreakMode="wordWrap" numberOfLines="4" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" id="RIk-uL-jrC">
+                            <label opaque="NO" userInteractionEnabled="NO" alpha="0.0" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Pinch to travel" textAlignment="center" lineBreakMode="wordWrap" numberOfLines="4" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" id="RIk-uL-jrC">
                                 <rect key="frame" x="0.0" y="350" width="812" height="25"/>
                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMinY="YES"/>
                                 <color key="backgroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
@@ -120,7 +124,7 @@
                                         </subviews>
                                     </stackView>
                                     <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="t2N-ua-Y2n" customClass="MyStepperWrapper" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="89.333333333333329" width="128" height="63.999999999999986"/>
+                                        <rect key="frame" x="0.0" y="91.666666666666671" width="128" height="64.000000000000014"/>
                                         <subviews>
                                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Size of Stars" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Dfb-Ku-cJ9" customClass="MyStepperLabel" customModule="Starfield_Simulation" customModuleProvider="target">
                                                 <rect key="frame" x="16.333333333333336" y="0.0" width="95.666666666666657" height="32"/>
@@ -129,7 +133,7 @@
                                                 <nil key="highlightedColor"/>
                                             </label>
                                             <stepper opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" contentHorizontalAlignment="center" contentVerticalAlignment="center" maximumValue="100" translatesAutoresizingMaskIntoConstraints="NO" id="85A-hQ-P2f" customClass="MyStepper" customModule="Starfield_Simulation" customModuleProvider="target">
-                                                <rect key="frame" x="17" y="32.000000000000007" width="94" height="31.999999999999993"/>
+                                                <rect key="frame" x="17" y="32" width="94" height="32"/>
                                                 <connections>
                                                     <action selector="starSizeStepperValueChanged:" destination="BV1-FR-VrT" eventType="valueChanged" id="njo-c6-fSO"/>
                                                 </connections>
@@ -137,7 +141,7 @@
                                         </subviews>
                                     </stackView>
                                     <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" distribution="equalSpacing" translatesAutoresizingMaskIntoConstraints="NO" id="j3a-p3-A72">
-                                        <rect key="frame" x="0.0" y="178.33333333333334" width="128" height="100.33333333333334"/>
+                                        <rect key="frame" x="0.0" y="183.33333333333334" width="128" height="100.33333333333334"/>
                                         <subviews>
                                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Following" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="IO7-4Z-Q8t" userLabel="Following:" customClass="MyStepperLabel" customModule="Starfield_Simulation" customModuleProvider="target">
                                                 <rect key="frame" x="0.0" y="0.0" width="128" height="20.333333333333332"/>
@@ -147,7 +151,7 @@
                                             </label>
                                             <pickerView contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="LQp-eL-dlv">
                                                 <rect key="frame" x="0.0" y="20.333333333333314" width="128" height="80"/>
-                                                <color key="backgroundColor" white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                                <color key="backgroundColor" white="0.33333333333333331" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                                 <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                                 <constraints>
                                                     <constraint firstAttribute="width" constant="128" id="CdV-mM-9ke"/>
@@ -167,9 +171,12 @@
                                             </userDefinedRuntimeAttribute>
                                         </userDefinedRuntimeAttributes>
                                     </stackView>
-                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="L35-WB-kYq" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
-                                        <rect key="frame" x="0.0" y="304" width="128" height="30"/>
-                                        <state key="normal" title="Colours"/>
+                                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="L35-WB-kYq" customClass="MyButton" customModule="Starfield_Simulation" customModuleProvider="target">
+                                        <rect key="frame" x="0.0" y="311.33333333333331" width="128" height="22.666666666666686"/>
+                                        <state key="normal" title="Colours">
+                                            <color key="titleColor" systemColor="systemGray5Color"/>
+                                            <imageReference key="image" image="paintbrush" catalog="system" renderingMode="original"/>
+                                        </state>
                                         <connections>
                                             <action selector="coloursPressed:" destination="BV1-FR-VrT" eventType="touchUpInside" id="6my-LZ-lzF"/>
                                         </connections>
@@ -214,7 +221,7 @@
             <size key="intrinsicContentSize" width="72" height="20.333333333333332"/>
         </designable>
         <designable name="L35-WB-kYq">
-            <size key="intrinsicContentSize" width="53" height="30"/>
+            <size key="intrinsicContentSize" width="83.666666666666671" height="22.666666666666668"/>
         </designable>
         <designable name="OK5-kp-acj">
             <size key="intrinsicContentSize" width="94" height="32"/>
@@ -238,4 +245,13 @@
             <size key="intrinsicContentSize" width="106" height="20.333333333333332"/>
         </designable>
     </designables>
+    <resources>
+        <image name="paintbrush" catalog="system" width="122" height="128"/>
+        <systemColor name="systemGray5Color">
+            <color red="0.89803921568627454" green="0.89803921568627454" blue="0.91764705882352937" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+        <systemColor name="systemGrayColor">
+            <color red="0.55686274509803924" green="0.55686274509803924" blue="0.57647058823529407" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+    </resources>
 </document>

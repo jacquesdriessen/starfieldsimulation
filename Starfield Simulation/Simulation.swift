@@ -45,7 +45,7 @@ class StarSimulation : NSObject {
     
     var _positions = [MTLBuffer]()
     var _velocities = [MTLBuffer]()
-    var _tracking = [MTLBuffer]()
+    var spectatorMovement = [MTLBuffer]()
     
     var _dispatchExecutionSize: MTLSize!
     var _threadsperThreadgroup: MTLSize!
@@ -75,6 +75,8 @@ class StarSimulation : NSObject {
     var speed : Float = 100 // percentage
     var gravity: Float = 100 // percentage
     var pinch: Float = 1 // pinching to "squeeze" space.
+    
+    var movement: SpecatorMovement = SpecatorMovement(position: vector_float4(0,0,0,0), velocity: vector_float4(0,0,0,0))
 
     init(computeDevice: MTLDevice, config: SimulationConfig) {
         super.init()
@@ -107,12 +109,12 @@ class StarSimulation : NSObject {
             _positions.append(_device.makeBuffer(length: bufferSize, options: .storageModeShared)!)
             _velocities.append(_device.makeBuffer(length: bufferSize, options: .storageModeShared)!)
             _blocks.append(_device.makeBuffer(length: MemoryLayout<StarBlock>.size, options: .storageModeShared)!)
-            _tracking.append(_device.makeBuffer(length: MemoryLayout<Tracking>.size, options: .storageModeShared)!)
+            spectatorMovement.append(_device.makeBuffer(length: MemoryLayout<SpecatorMovement>.size, options: .storageModeShared)!)
        
             _positions[i].label = "Positions" + String(i)
             _velocities[i].label = "Velocities" + String(i)
             _blocks[i].label = "Blocks" + String(i)
-            _tracking[i].label = "Tracking" + String(i)
+            spectatorMovement[i].label = "Tracking" + String(i)
         }
  
         _simulationParams = _device.makeBuffer(length: MemoryLayout<StarSimParams>.size, options: .storageModeShared)
@@ -354,6 +356,10 @@ class StarSimulation : NSObject {
             semaphore!.signal()
         }
     }
+    
+    func move (position: vector_float4 = vector_float4(0,0,0,0), velocity :vector_float4 = vector_float4(0,0,0,0)) {
+        movement = SpecatorMovement(position: position, velocity: velocity)
+    }
 
     func squeeze(_pinch: Float) {
         pinch = max(0.9, min(1.1, _pinch))
@@ -408,6 +414,7 @@ class StarSimulation : NSObject {
                     params[0].damping = 1/_config.damping
                 }
                 
+                // THIS CREATES BLACK HOLE, need to look at this code - incorporate it somehow
                 if (interact) {
                     // interact with (both if we have 2) galaxies
                     var translation = matrix_identity_float4x4
@@ -428,46 +435,62 @@ class StarSimulation : NSObject {
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].w = 0
                 }
                 
+                
+                // all spectator movement
+                
+                // start with zero
+                var totalMovement = SpecatorMovement(position: vector_float4(0,0,0,0), velocity: vector_float4(0,0,0,0))
+                
+                // add movement requested by UI
+                totalMovement.position += movement.position
+                totalMovement.velocity += movement.velocity
+
+                // reset to zero, UI will ask for more in next frame if needed
+                movement = SpecatorMovement(position: vector_float4(0,0,0,0), velocity: vector_float4(0,0,0,0))
+                
+                //
+                //
+                // maybe we should move below into UI - and have it call move.
+                //
+                
                 let trackSpeed : Float = 0.1
+                var trackPosition : vector_float4 = vector_float4(0,0,0,0)
+                var trackVelocity : vector_float4 = vector_float4(0,0,0,0)
+                                
                 switch(track) {
                 case 0:
                     do { // no tracking
-                        self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = vector_float4(0,0,0,0)
-                        self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = vector_float4(0,0,0,0)
                     }
                 case 1:
                     do {
-                        let black_hole_position = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1]
-                        let black_hole_velocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1]
-                        
-                        _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
-                        _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
+                        trackPosition = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1]
+                        trackVelocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1]
                     }
                 case 2:
                     do {
-                        let black_hole_position = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1]
-                        let black_hole_velocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1]
-                        
-                        _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
-                        _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
+                        trackPosition = _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1]
+                        trackVelocity = _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1]
                     }
                 case 3:
                     do {
-                        let black_hole_position = 0.5 * (_positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] + _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1])
-                        let black_hole_velocity = 0.5 * (_velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] +
+                        trackVelocity = 0.5 * (_positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] + _positions[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1])
+                        trackVelocity = 0.5 * (_velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self._config.numBodies) - 1] +
                                                             _velocities[self._oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(self.split) - 1])
-                        
-                        _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = black_hole_velocity;
-                        _tracking[_oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = trackSpeed * (black_hole_position - vector_float4(0,0,-0.25,0)) //twice as close, so we can see this works
                     }
-                    
                 default:
                     do { // no tracking
-                        self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].position = vector_float4(0,0,0,0)
-                        self._tracking[self._oldBufferIndex].contents().assumingMemoryBound(to: Tracking.self)[0].velocity = vector_float4(0,0,0,0)
                     }
                 }
+                
+                // add tracking velicity and position
+                totalMovement.velocity += trackVelocity
+                totalMovement.position += trackSpeed * trackPosition
+                
+                // and pass the total movement onto the simulation
+                spectatorMovement[_oldBufferIndex].contents().assumingMemoryBound(to: SpecatorMovement.self)[0] = totalMovement
             }
+            
+            
             
             let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self) // ensure we start at the beginning with compute!
             blocks[0].begin = UInt32(blockBegin) // the block we want to calculate
@@ -489,7 +512,7 @@ class StarSimulation : NSObject {
             computeEncoder.setBuffer(_velocities[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexOldVelocity.rawValue))
             computeEncoder.setBuffer(_simulationParams, offset: 0, index: Int(starComputeBufferIndexParams.rawValue))
             computeEncoder.setBuffer(_blocks[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexBlock.rawValue))
-            computeEncoder.setBuffer(_tracking[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexTracking.rawValue))
+            computeEncoder.setBuffer(spectatorMovement[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexTracking.rawValue))
             computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // duplicate
             computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
             

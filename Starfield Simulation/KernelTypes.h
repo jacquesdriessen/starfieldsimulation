@@ -36,7 +36,7 @@ typedef struct StarBlock
     bool            collide;
 } StarBlock;
 
-typedef struct Tracking
+typedef struct SpecatorMovement
 {
     vector_float4 position;
     vector_float4 velocity;

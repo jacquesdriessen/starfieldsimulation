@@ -16,8 +16,7 @@ import ARKit
         
         layer.cornerRadius = 10
         clipsToBounds = true
-        backgroundColor = .black
-        tintColor = .white
+        backgroundColor = .systemGray
     }
 }
 
@@ -31,6 +30,7 @@ import ARKit
         stepValue = 1
         wraps = false
         autorepeat = true
+        backgroundColor = .systemGray
     }
     
     func direction() -> Int {
@@ -212,7 +212,10 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         let panGesture = UIPanGestureRecognizer(target: self, action: #selector(ViewController.handlePan(gestureRecognize:)))
         view.addGestureRecognizer(panGesture)
         panGesture.require(toFail: tapGesture)*/
-   
+
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(ViewController.handleLongPress(gestureRecognize:)))
+        view.addGestureRecognizer(longPress)
+
    }
 
     
@@ -306,6 +309,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             return
         }
         showUI()
+ 
         /*
         if gestureRecognize.state == .began {
         }
@@ -343,6 +347,25 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             }*/
         } */
     }
+    
+    @objc
+    func handleLongPress(gestureRecognize: UILongPressGestureRecognizer) {
+        guard gestureRecognize.view != nil else {
+            return
+        }
+        
+        //showUI() handled in tap
+        
+        if gestureRecognize.state == .began {
+            print("on")
+        }
+ 
+        if gestureRecognize.state == .ended {
+            //let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates
+            print("off")
+        }
+    }
+ 
 
     @objc
     func handlePinch(gestureRecognize: UIPinchGestureRecognizer) {
@@ -350,9 +373,24 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             return
         }
         
-
-        _simulation.squeeze(_pinch: Float(gestureRecognize.scale))
+        // WE NEED TO MOVE THIS SOMEWHERE ELSE
+        // _simulation.squeeze(_pinch: Float(gestureRecognize.scale))
         
+        
+        if gestureRecognize.state == .began || gestureRecognize.state == .changed {
+            let velocity = Float(gestureRecognize.velocity)
+            
+            print (velocity)
+            
+            let direction = extractOrientationMatrix(fullmatrix: cameraMatrix()) * vector_float4(0,0,-1, 1)
+            
+            _simulation.move(position: 0.5*velocity*direction)
+            
+            
+        }
+        
+        
+        // Show UI explanation
         if gestureRecognize.state == .began {
             pinchLabel.alpha = 1.0
         }
@@ -409,6 +447,57 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     // Called whenever view changes orientation or layout is changed
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         renderer.drawRectResized(size: size)
+    }
+    
+    // https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati
+    
+    func extractOrientationMatrix(fullmatrix: float4x4) -> float4x4 {
+        let scaling = extractScaling(fullmatrix: fullmatrix)
+        
+        var matrix_extract_rotation = matrix_identity_float4x4
+        matrix_extract_rotation.columns.0.x = 1/scaling.x
+        matrix_extract_rotation.columns.1.y = 1/scaling.y
+        matrix_extract_rotation.columns.2.z = 1/scaling.z
+        
+        matrix_extract_rotation = fullmatrix * matrix_extract_rotation
+        matrix_extract_rotation.columns.3 = vector_float4(0,0,0,1)
+        matrix_extract_rotation.columns.0.w = 0
+        matrix_extract_rotation.columns.1.w = 0
+        matrix_extract_rotation.columns.2.w = 0
+
+        return matrix_extract_rotation
+    }
+
+    func extractTranslationMatrix(fullmatrix: float4x4) -> float4x4 {
+     
+        var matrix_extract_translation = matrix_identity_float4x4
+        matrix_extract_translation.columns.0.x = 0
+        matrix_extract_translation.columns.1.y = 0
+        matrix_extract_translation.columns.2.z = 0
+        
+        return fullmatrix * matrix_extract_translation
+    }
+
+    func extractScaling(fullmatrix: float4x4) -> vector_float4 {
+        
+        return vector_float4(simd_length(fullmatrix.columns.0), simd_length(fullmatrix.columns.1), simd_length(fullmatrix.columns.2), 1)
+    }
+    
+    func extractTranslation(fullmatrix: float4x4) -> vector_float4 {
+        
+        let matrix_translation = extractTranslationMatrix(fullmatrix: fullmatrix)
+        
+        return vector_float4(matrix_translation.columns.3.x, matrix_translation.columns.3.y, matrix_translation.columns.3.z, 1)
+    }
+
+    func cameraMatrix() -> float4x4 {
+        guard let currentFrame = session.currentFrame else {
+            return matrix_identity_float4x4
+        }
+
+        let camera = currentFrame.camera.transform
+
+        return camera
     }
     
     func setAlphaUI() {
