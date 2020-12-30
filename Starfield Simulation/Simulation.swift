@@ -128,32 +128,6 @@ class StarSimulation : NSObject {
         params[0].numBodies = _config.numBodies
     }
     
-    func translate(translation: vector_float3) -> simd_float4x4 {
-        return simd_float4x4(simd_float4(1,0,0,0), // note this is column by column if I understood correctly
-                             simd_float4(0,1,0,0),
-                             simd_float4(0,0,1,0),
-                             simd_float4(translation.x, translation.y, translation.z, 1))
-    }
-    
-    func rotate (rotation: vector_float3) -> simd_float4x4 {
-        let alpha = rotation.x //https://en.wikipedia.org/wiki/Rotation_matrix
-        let beta = rotation.y
-        let gamma = rotation.z
-        
-        return simd_float4x4(simd_float4(cos(alpha)*cos(beta), sin(alpha)*cos(beta), -sin(beta), 0),
-                             simd_float4(cos(alpha)*sin(beta)*sin(gamma)-sin(alpha)*cos(gamma), sin(alpha)*sin(beta)*sin(gamma)+cos(alpha)*cos(gamma), cos(beta)*sin(gamma), 0),
-                             simd_float4(cos(alpha)*sin(beta)*cos(gamma)+sin(alpha)*sin(gamma), sin(alpha)*sin(beta)*cos(gamma)-cos(alpha)*sin(gamma),
-                                         cos(beta)*cos(gamma),0),
-                             simd_float4(0, 0, 0, 1))
-    }
-    
-    func scale (factor: vector_float3) -> simd_float4x4 {
-        return simd_float4x4(simd_float4(1/factor.x,0,0,0), // note this is column by column if I understood correctly
-                             simd_float4(0,1/factor.y,0,0),
-                             simd_float4(0,0,1/factor.z,0),
-                             simd_float4(0, 0, 0, 1))
-    }
-    
     func cross_product (a: vector_float3, b: vector_float3) -> vector_float3 {
         var x_product = vector_float3(0,0,0)
         
@@ -171,11 +145,11 @@ class StarSimulation : NSObject {
         let outer : Float = 4.0 * pscale
         var total_mass: Float = 0
 
-        let rightInFrontOfCamera = simd_mul(camera, translate(translation:vector_float3(0,0,-0.5))) //0.5 meters in front of the camera, so we can see it!
-        let rotation_matrix = rotate(rotation: axis)
+        let rightInFrontOfCamera = simd_mul(camera, translationMatrix(translation:vector_float3(0,0,-0.5))) //0.5 meters in front of the camera, so we can see it!
+        let rotation_matrix = rotationMatrix(rotation: axis)
 
-        let position_transformation = rightInFrontOfCamera * translate(translation: positionOffset) * rotation_matrix
-        let velocity_transformation = rightInFrontOfCamera * translate(translation: velocityOffset * _config.clusterScale * _config.velocityScale) * rotation_matrix
+        let position_transformation = rightInFrontOfCamera * translationMatrix(translation: positionOffset) * rotation_matrix
+        let velocity_transformation = rightInFrontOfCamera * translationMatrix(translation: velocityOffset * _config.clusterScale * _config.velocityScale) * rotation_matrix
         
         split = UInt32(first) // split will always be right before the "last galaxy".
         

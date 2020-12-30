@@ -423,11 +423,8 @@ class Renderer {
         let uniforms = sharedUniformBufferAddress.assumingMemoryBound(to: SharedUniforms.self)
         
         uniforms.pointee.viewMatrix = frame.camera.viewMatrix(for: .landscapeRight)
-            *
-            float4x4(simd_float4(_renderScale,0,0,0),
-                     simd_float4(0,_renderScale,0,0),
-                     simd_float4(0,0,_renderScale,0),
-                     simd_float4(0,0,0,1))
+            * scaleMatrix(scale: 1/_renderScale)
+
         uniforms.pointee.projectionMatrix = frame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
         uniforms.pointee.starSize = starSize
     }
@@ -570,7 +567,8 @@ class Renderer {
 
             let blackhole2 = (1-interpolation) * positions1[index_blackhole2] + interpolation * positions2[index_blackhole2]
 
-            //print(split, numBodies)
+            
+           //print(split, numBodies)
 
             vertices[0] = InteractiveVertex(position: camera_position, color: [0, 1, 0, 1])
             vertices[1] = InteractiveVertex(position: blackhole1, color: [0, 0, 1, 1])

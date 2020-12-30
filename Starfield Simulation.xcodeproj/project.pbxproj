@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C4A79760259CCC4E002AE71C /* MatrixLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A7975F259CCC4E002AE71C /* MatrixLibrary.swift */; };
 		C4C0DBB02593E0ED006B8CC4 /* Kernels.metal in Sources */ = {isa = PBXBuildFile; fileRef = C4C0DBAF2593E0ED006B8CC4 /* Kernels.metal */; };
 		C4C0DBB92593E2D1006B8CC4 /* Simulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C0DBB82593E2D1006B8CC4 /* Simulation.swift */; };
 		C4EBA6492591F87A00C0F512 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EBA6482591F87A00C0F512 /* AppDelegate.swift */; };
@@ -38,6 +39,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C4A7975F259CCC4E002AE71C /* MatrixLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatrixLibrary.swift; sourceTree = "<group>"; };
 		C4C0DBAF2593E0ED006B8CC4 /* Kernels.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Kernels.metal; sourceTree = "<group>"; };
 		C4C0DBB42593E13F006B8CC4 /* KernelTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KernelTypes.h; sourceTree = "<group>"; };
 		C4C0DBB82593E2D1006B8CC4 /* Simulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Simulation.swift; sourceTree = "<group>"; };
@@ -112,6 +114,7 @@
 				C4C0DBB82593E2D1006B8CC4 /* Simulation.swift */,
 				C4EBA6482591F87A00C0F512 /* AppDelegate.swift */,
 				C4C0DBAF2593E0ED006B8CC4 /* Kernels.metal */,
+				C4A7975F259CCC4E002AE71C /* MatrixLibrary.swift */,
 				C4EBA64C2591F87A00C0F512 /* ShaderTypes.h */,
 				C4EBA64D2591F87A00C0F512 /* Renderer.swift */,
 				C4EBA64A2591F87A00C0F512 /* Shaders.metal */,
@@ -275,6 +278,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4A79760259CCC4E002AE71C /* MatrixLibrary.swift in Sources */,
 				C4EBA64B2591F87A00C0F512 /* Shaders.metal in Sources */,
 				C4EBA64E2591F87A00C0F512 /* Renderer.swift in Sources */,
 				C4EBA6502591F87A00C0F512 /* ViewController.swift in Sources */,

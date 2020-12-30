@@ -95,6 +95,9 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     
     var fadeIn = false // controls the fade direction
     var alpha: CGFloat = 1
+    
+    var blackHoleMode: Bool = false
+    var blackHoleScreenCoordinates: vector_float2 = vector_float2(0,0)
 
     @IBAction func arStepperValueChanged(_ sender: MyStepper) {
         showUI()
@@ -354,15 +357,16 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             return
         }
         
-        //showUI() handled in tap
+        // need to think of what to do with screen coordinates + how to keep on tracking things, e.g. should "enable track mode", then send someone screen coordinates (in UI), then in the loop do calculation.
+
+        print(screenCoordinatesToWorldCoordinates(screenCoordinates: gestureRecognize.location(in: self.view)))
         
         if gestureRecognize.state == .began {
-            print("on")
+            blackHoleMode = true
         }
  
         if gestureRecognize.state == .ended {
-            //let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates
-            print("off")
+            blackHoleMode = false
         }
     }
  
@@ -379,9 +383,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         
         if gestureRecognize.state == .began || gestureRecognize.state == .changed {
             let velocity = Float(gestureRecognize.velocity)
-            
-            print (velocity)
-            
+
             let direction = extractOrientationMatrix(fullmatrix: cameraMatrix()) * vector_float4(0,0,-1, 1)
             
             _simulation.move(position: 0.5*velocity*direction)
@@ -449,48 +451,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         renderer.drawRectResized(size: size)
     }
     
-    // https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati
-    
-    func extractOrientationMatrix(fullmatrix: float4x4) -> float4x4 {
-        let scaling = extractScaling(fullmatrix: fullmatrix)
-        
-        var matrix_extract_rotation = matrix_identity_float4x4
-        matrix_extract_rotation.columns.0.x = 1/scaling.x
-        matrix_extract_rotation.columns.1.y = 1/scaling.y
-        matrix_extract_rotation.columns.2.z = 1/scaling.z
-        
-        matrix_extract_rotation = fullmatrix * matrix_extract_rotation
-        matrix_extract_rotation.columns.3 = vector_float4(0,0,0,1)
-        matrix_extract_rotation.columns.0.w = 0
-        matrix_extract_rotation.columns.1.w = 0
-        matrix_extract_rotation.columns.2.w = 0
-
-        return matrix_extract_rotation
-    }
-
-    func extractTranslationMatrix(fullmatrix: float4x4) -> float4x4 {
-     
-        var matrix_extract_translation = matrix_identity_float4x4
-        matrix_extract_translation.columns.0.x = 0
-        matrix_extract_translation.columns.1.y = 0
-        matrix_extract_translation.columns.2.z = 0
-        
-        return fullmatrix * matrix_extract_translation
-    }
-
-    func extractScaling(fullmatrix: float4x4) -> vector_float4 {
-        
-        return vector_float4(simd_length(fullmatrix.columns.0), simd_length(fullmatrix.columns.1), simd_length(fullmatrix.columns.2), 1)
-    }
-    
-    func extractTranslation(fullmatrix: float4x4) -> vector_float4 {
-        
-        let matrix_translation = extractTranslationMatrix(fullmatrix: fullmatrix)
-        
-        return vector_float4(matrix_translation.columns.3.x, matrix_translation.columns.3.y, matrix_translation.columns.3.z, 1)
-    }
-
-    func cameraMatrix() -> float4x4 {
+     func cameraMatrix() -> float4x4 {
         guard let currentFrame = session.currentFrame else {
             return matrix_identity_float4x4
         }
@@ -500,6 +461,21 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         return camera
     }
     
+    func projectionMatrix() -> float4x4 {
+        guard let currentFrame = session.currentFrame else {
+            return matrix_identity_float4x4
+        }
+        
+        let projection = currentFrame.camera.projectionMatrix
+        
+        return projection
+    }
+    
+    
+    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 {
+        return mirrorMatrix(x: true, y: true, z: true) * cameraMatrix().inverse * normalisedInverseMatrix(fullmatrix: projectionMatrix()) * vector_float4(Float(screenCoordinates.x/view.frame.size.width), Float(screenCoordinates.y/view.frame.size.height), 0, 1)
+    }
+
     func setAlphaUI() {
         for v:UIView in view.subviews {
             if v != pinchLabel {
