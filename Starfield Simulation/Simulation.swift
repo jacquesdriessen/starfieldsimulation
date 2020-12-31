@@ -141,8 +141,8 @@ class StarSimulation : NSObject {
         return x_product
     }
     
-    func addparticles(index: Int) {
-        let rightInFrontOfCamera = simd_mul(camera, translationMatrix(translation:vector_float3(0,0,-0.5))) //0.5 meters in front of the
+    func addParticles(first: Int, last: Int, touch: vector_float2 = vector_float2(0,0)) {
+        let rightInFrontOfCamera = simd_mul(camera, translationMatrix(translation:vector_float3(touch.x, touch.y,-2.5))) //5 cm in front of the
        
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -152,28 +152,25 @@ class StarSimulation : NSObject {
         let velocities3 = _velocities[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
 
         let position_transformation = rightInFrontOfCamera
-        positions[index] = position_transformation * vector_float4(0, 0, 0, 0)
-        positions[index].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
+        
+        let anchor = first == 0 ? Int(_config.numBodies - 1) : first - 1
+        let position_anchor = positions[anchor]
+        let position_last = position_transformation * vector_float4(0, 0, 0, 1)
+        
+        for index in first...last {
+            let interpolation : Float = Float(index + 1 - first) / Float(last + 1 - first)
+            let position = interpolation * position_last + (1 - interpolation) * position_anchor
 
-        velocities[index] = vector_float4(0, 0, 0, 0)
-    
-        
-        // apply the rotation & translation + go to camera coordinates.
-        let temp_radius = positions[index].w // save this value - as we use this for something else.
-        positions[index].w = 1 // if we don't do this, would mess up the transformation
-//        velocities[index].w = 1 // otherwise this wouldn't work either.
-        positions[index] = position_transformation * positions[index]
-  //      velocities[index] = velocity_transformation * velocities[index]
-        positions[index].w = temp_radius // restores .w
-        
-        // in case we are "on halt", we still want it to display, e.g. copy to all buffers
-        positions2[index] = positions[index]
-        positions3[index] = positions[index]
-        velocities2[index] = velocities[index]
-        velocities3[index] = velocities[index]
-
-        
-        
+            positions[index] = position
+            positions[index].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
+            velocities[index] = vector_float4(0, 0, 0, 0)
+            
+            // in case we are "on halt", we still want it to display, e.g. copy to all buffers
+            positions2[index] = positions[index]
+            positions3[index] = positions[index]
+            velocities2[index] = velocities[index]
+            velocities3[index] = velocities[index]
+        }
     }
     
     func makegalaxy(first: Int, last: Int, positionOffset: vector_float3 = vector_float3(0,0,0), velocityOffset: vector_float3 = vector_float3(0,0,0), axis: vector_float3 = vector_float3(0,0,0), flatten: Float = 1, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1, collision_enabled: Bool = false) {
@@ -398,15 +395,21 @@ class StarSimulation : NSObject {
         return Float(blocks[0].begin)/Float(_config.numBodies)
     }
 
-    func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer) {
+    func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer, touch: vector_float2) {
         if (halt && interact) { // need to clearn this up, this is nonsensical this way
-            rotateParticles += 1
-            if rotateParticles  > _config.numBodies  {
+
+            let step = 32
+            let previous = rotateParticles
+            rotateParticles += step
+            
+            addParticles(first: previous, last: rotateParticles - 1, touch: touch)
+
+            if rotateParticles  >= _config.numBodies  {
                 rotateParticles = 0
             }
             
-            addparticles(index: rotateParticles)
         }
+        
         if (!halt) {
             // could be done smarter, e.g. make sure we only wait if we need to advance the frame, now it just waits advancing + pushing stuff to the gpu every compute cyle, but otherwise we get artefacts (particles not advancing, because of advancing frames before computations have finished.
             let _ = blockSemaphore.wait(timeout: DispatchTime.distantFuture)
@@ -465,7 +468,7 @@ class StarSimulation : NSObject {
                     _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)[Int(split)].w = 0
  
 */
-                    // option 2 , place galaxy
+                    // option 2 , place galaxy, should be "offline", as really slow.
                     
                     /*
                     rotateGalaxies += Int(_config.numBodies)/8
@@ -477,6 +480,41 @@ class StarSimulation : NSObject {
                     
                     
     //option 3  -- place stars
+                    /* //method 1
+                     rotateParticles += 1
+                     if rotateParticles  > _config.numBodies  {
+                     rotateParticles = 0
+                     }
+                     
+                     addparticles(index: rotateParticles) */
+                    
+                    // method 2, just losts of small galaxies
+                    
+                    /* this didn't work too well
+                    let divisor = 4096
+                    rotateGalaxies += Int(_config.numBodies)/divisor
+                    if rotateGalaxies  > _config.numBodies  {
+                        rotateGalaxies = 0
+                    }
+                    
+                    makegalaxyonlyaddparticles(first: rotateGalaxies, last: rotateGalaxies + Int(_config.numBodies)/divisor - 1, positionOffset: vector_float3(0, 0, 0.49), flatten: 0.05, prescale: pow(1.0 / Float(divisor), 1/2), squeeze: 2) // offset 0.4 in z direction so it's right in front of where the device is.
+                    */
+                    
+                    //method 3 -- needs to be in main loop I guess.
+            /*        let step = 8 // needs to be power of 2
+                    
+                    let previous = rotateParticles
+                    rotateParticles += step
+                    
+                    if rotateParticles  > _config.numBodies  {
+                        rotateParticles = 0
+                    }
+                    
+                    
+                     
+                    addParticles(first: previous, last: rotateParticles - 1)
+                  */
+                    
                     halt = true
                 }
                 

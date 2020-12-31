@@ -98,7 +98,8 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     
     var blackHoleMode: Bool = false
     var fingerScreenCoordinates: CGPoint = CGPoint(x: 0,y: 0)
-    var fingerWorldCoordinates: vector_float4 = vector_float4(0,0,0,0)
+    var fingerCoordinates: vector_float2 = vector_float2(0,0)
+    var fingerWorldCoordinates: vector_float4 = vector_float4(0,0,0,0) // can't get these right
 
     @IBAction func arStepperValueChanged(_ sender: MyStepper) {
         showUI()
@@ -219,6 +220,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
 
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(ViewController.handleLongPress(gestureRecognize:)))
         view.addGestureRecognizer(longPress)
+        longPress.minimumPressDuration = 0.5
 
    }
 
@@ -487,10 +489,15 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         return projection
     }
     
-    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 { //can't figure this out, so let's use something else
-
+    func screenCoordinatesToNormalCoordinates(screenCoordinates: CGPoint) -> vector_float2 {
         let x : Float = 2 * Float(screenCoordinates.x) / Float(view.frame.size.width) - 1
-        let y : Float = 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1
+        let y : Float = -( 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1) // for whatever reason this is upside down.
+
+        return vector_float2(x,y)
+    }
+    
+    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 { //can't figure this out, so let's use something else
+        let normalCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates:screenCoordinates)
         
         let inverse_transform: float4x4 =
             extractOrientationMatrix(fullmatrix: cameraMatrix()) *
@@ -501,7 +508,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             cameraMatrix().inverse * // undo the camera stuff
             projectionMatrix().inverse // undo the projection
 
-        return inverse_transform * vector_float4(x,y,projectionMatrix().columns.3.z,0) // inverse projection https://jsantell.com/3d-projection/
+        return inverse_transform * vector_float4(normalCoordinates.x,normalCoordinates.y,projectionMatrix().columns.3.z,0) // inverse projection https://jsantell.com/3d-projection/
     }
 
     func setAlphaUI() {
@@ -541,6 +548,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         
         // handle screen to world for finger
         fingerWorldCoordinates = screenCoordinatesToWorldCoordinates(screenCoordinates: fingerScreenCoordinates)
+        fingerCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates: fingerScreenCoordinates)
         
         // pass camera position through to simulation, need to be smarter about this.
         if let currentFrame = session.currentFrame {
@@ -557,7 +565,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             
             commandBuffer.pushDebugGroup("Controller Frame")
             
-            _simulation.simulateFrameWithCommandBuffer(commandBuffer: commandBuffer)
+            _simulation.simulateFrameWithCommandBuffer(commandBuffer: commandBuffer, touch: fingerCoordinates)
             
             commandBuffer.commit()
             commandBuffer.popDebugGroup()

@@ -540,7 +540,7 @@ class Renderer {
         let vertices = interactiveVertexBuffer.contents().assumingMemoryBound(to: InteractiveVertex.self)
 
         
-        if laserPointer {
+        if !laserPointer {
             //camera
             guard let currentFrame = session.currentFrame else {
                 return
