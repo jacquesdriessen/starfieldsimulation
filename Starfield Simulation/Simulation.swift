@@ -141,9 +141,17 @@ class StarSimulation : NSObject {
         return x_product
     }
     
-    func addParticles(first: Int, last: Int, touch: vector_float2 = vector_float2(0,0)) {
-        let rightInFrontOfCamera = simd_mul(camera, translationMatrix(translation:vector_float3(touch.x, touch.y,-2.5))) //5 cm in front of the
-       
+    func addParticles(first: Int, last: Int, touch: vector_float2 = vector_float2(0,0), finger: vector_float4 = vector_float4(0,0,0,0)) {
+        
+        let pointer = finger - camera.columns.3
+        let pointer_3 = vector_float3(pointer.x, pointer.y, pointer.z)
+        
+        let offset_3 = vector_float3(0,0,-1)
+        
+        let translation_3 = 0.5*(pointer_3 + offset_3)
+
+        let rightInFrontOfCamera = camera * translationMatrix(translation: translation_3)
+        
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let positions2 = _positions[_oldestBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -395,14 +403,14 @@ class StarSimulation : NSObject {
         return Float(blocks[0].begin)/Float(_config.numBodies)
     }
 
-    func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer, touch: vector_float2) {
+    func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer, touch: vector_float2, finger: vector_float4) {
         if (halt && interact) { // need to clearn this up, this is nonsensical this way
-
-            let step = 32
+/* anyway, this sort of works, probably can go in .  */
+            let step = 8
             let previous = rotateParticles
             rotateParticles += step
             
-            addParticles(first: previous, last: rotateParticles - 1, touch: touch)
+            addParticles(first: previous, last: rotateParticles - 1, touch: touch, finger: finger)
 
             if rotateParticles  >= _config.numBodies  {
                 rotateParticles = 0

@@ -490,25 +490,34 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     }
     
     func screenCoordinatesToNormalCoordinates(screenCoordinates: CGPoint) -> vector_float2 {
-        let x : Float = 2 * Float(screenCoordinates.x) / Float(view.frame.size.width) - 1
-        let y : Float = -( 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1) // for whatever reason this is upside down.
+        let x : Float = 1  * ( 2 * Float(screenCoordinates.x) / Float(view.frame.size.width) - 1) // 0.001 is that scaling factor
+        let y : Float = -1 * ( 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1) // for whatever reason this is upside down.
 
         return vector_float2(x,y)
     }
     
-    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 { //can't figure this out, so let's use something else
-        let normalCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates:screenCoordinates)
-        
-        let inverse_transform: float4x4 =
-            extractOrientationMatrix(fullmatrix: cameraMatrix()) *
-            translationMatrix(translation: vector_float3(0,0,-0.5)) *
-            extractOrientationMatrix(fullmatrix: cameraMatrix()).inverse *
-            extractOrientationMatrix(fullmatrix: cameraMatrix()) * // rotate back to device.
-            mirrorMatrix(x: true, y: true, z: true) * // and since we do the reverse, all is mirrored, not sure why that is.
-            cameraMatrix().inverse * // undo the camera stuff
-            projectionMatrix().inverse // undo the projection
+    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 {
+        // https://jsantell.com/3d-projection/ to learn about projections.
+        // there should be a more straightforward way, but I think this makes sense to me.
 
-        return inverse_transform * vector_float4(normalCoordinates.x,normalCoordinates.y,projectionMatrix().columns.3.z,0) // inverse projection https://jsantell.com/3d-projection/
+        let forward_transform = projectionMatrix() * cameraMatrix()                     // transformation (<- direction) device3D  <- world
+        let inverse_transform = cameraMatrix().inverse * projectionMatrix().inverse     // transformation (<- direction) world     <- device3D
+                                                                                        // transformation (<- direction) device2D  <- device3D = drop z & w
+                                                                                        // transformation (<- direction) device3D  <- device2D is the hard bit, requires knowledge of the device (end of the day 2D) and it's orientation & how it scales to the real world. For the middle of device & world, it's easy.
+
+        
+        // where the device is right now.
+        let deviceMiddle_world = cameraMatrix().columns.3 // column 3 = position of the camera
+        let deviceMiddle_device3D = forward_transform * deviceMiddle_world
+
+        // where we are on the tablet
+        let deviceCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates:screenCoordinates)
+        let deviceCoordinates_device3D = vector_float4(deviceCoordinates.x, deviceCoordinates.y, 0, 0) // This is 2D I know, but that
+        
+        let point = inverse_transform * (deviceMiddle_device3D + deviceCoordinates_device3D) //  figure out where we are compared to where the device is
+
+        return point
+        
     }
 
     func setAlphaUI() {
@@ -565,7 +574,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
             
             commandBuffer.pushDebugGroup("Controller Frame")
             
-            _simulation.simulateFrameWithCommandBuffer(commandBuffer: commandBuffer, touch: fingerCoordinates)
+            _simulation.simulateFrameWithCommandBuffer(commandBuffer: commandBuffer, touch: fingerCoordinates, finger: fingerWorldCoordinates)
             
             commandBuffer.commit()
             commandBuffer.popDebugGroup()
