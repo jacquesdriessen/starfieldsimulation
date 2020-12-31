@@ -9,6 +9,9 @@ import Metal
 import MetalKit
 import ARKit
 
+// get some global variables as otherwise we just passing things around
+var partitions = 1
+
 @IBDesignable class MyButton: UIButton
 {
     override func layoutSubviews() {
@@ -160,7 +163,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     @IBOutlet weak var pinchLabel: UILabel!
     
 
-    let trackingOptions : [String] = ["None", "Blue / 1", "Red / 2", "Middle"]
+    let trackingOptions : [String] = ["None", "Red / 1", "Orange / 2", "Middle"]
 
     @IBOutlet weak var TrackingPicker: UIPickerView!
   

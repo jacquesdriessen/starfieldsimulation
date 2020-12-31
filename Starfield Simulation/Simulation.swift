@@ -38,7 +38,7 @@ class StarSimulation : NSObject {
     var _device: MTLDevice!
     var _commandQueue: MTLCommandQueue!
     var _computePipeline : MTLComputePipelineState!
-    let models: Int = 8
+    let models: Int = 9
     var model: Int = 0
     
     var _currentBufferIndex: Int = 0
@@ -181,6 +181,25 @@ class StarSimulation : NSObject {
         }
     }
     
+    func zeroparticles(first: Int, last: Int) {
+        let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let positions2 = _positions[_oldestBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let velocities2 = _velocities[_oldestBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let positions3 = _positions[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        let velocities3 = _velocities[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
+        
+        for i in first...last {
+            let zero = vector_float4(0,0,0,0)
+            positions[i] = zero
+            velocities[i] = zero
+            positions2[i] = zero
+            velocities2[i] = zero
+            positions3[i] = zero
+            velocities3[i] = zero
+        }
+    }
+    
     func makegalaxy(first: Int, last: Int, positionOffset: vector_float3 = vector_float3(0,0,0), velocityOffset: vector_float3 = vector_float3(0,0,0), axis: vector_float3 = vector_float3(0,0,0), flatten: Float = 1, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1, collision_enabled: Bool = false) {
         
         // reset simulation
@@ -197,6 +216,7 @@ class StarSimulation : NSObject {
         gravity = 100 // back to default gravity
         pinch = 1 // no squeezing space anymore
         rotateGalaxies = 0 // for placing galaxies
+        partitions += 1 // increase partitions.
 
         makegalaxyonlyaddparticles(first: first, last: last, positionOffset: positionOffset, velocityOffset: velocityOffset, axis: axis, flatten: flatten, prescale: prescale, vrescale: vrescale, vrandomness: vrandomness, squeeze: squeeze, collision_enabled: collision_enabled)
     }
@@ -349,6 +369,9 @@ class StarSimulation : NSObject {
             semaphore!.wait()
         }
         
+        // reset partitions, each galaxy creation will "up" this.
+        partitions = 0
+        
         // when adding things, make sure we update "models" in the var declarion, which holds the total number, e.g. the last (as we start from 0) = models-1
         switch model {
         case 0: // one flat galaxy
@@ -357,7 +380,8 @@ class StarSimulation : NSObject {
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, squeeze: 2)
         case 2: // small & big galaxy
             makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
-            makegalaxy(first: Int(_config.numBodies)/8,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05, squeeze: 2)
+            zeroparticles(first: Int(_config.numBodies)/8, last: Int(_config.numBodies)/2 - 1)
+            makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05, squeeze: 2)
         case 3: // equal galaxies, parallel
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
             makegalaxy(first:Int(_config.numBodies)/2, last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05)
@@ -373,6 +397,14 @@ class StarSimulation : NSObject {
         case 7: // equal galaxies / different orientations
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, squeeze: 2)
             makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0,Float.pi/2,0), flatten: 0.05, squeeze: 2)
+        case 8: // 8 small galaxies
+            for i in 0...7 {
+                makegalaxy(first:i * Int(_config.numBodies)/8, last: ((i+1) * Int(_config.numBodies)/8) - 1, positionOffset: vector_float3(Float.random(in: -0.2...0.2), Float.random(in: -0.2...0.2), Float.random(in: -0.3...0)), axis: vector_float3(Float.random(in: 0...Float.pi),Float.random(in: 0...Float.pi),Float.random(in: 0...Float.pi)), flatten: Float.random(in: 0.05...1), prescale: 0.125, squeeze: Float.random(in: 1...2))
+            }
+        case 16: // 16 even smaller galaxies
+            for i in 0...15 {
+                makegalaxy(first:i * Int(_config.numBodies)/16, last: ((i+1) * Int(_config.numBodies)/16) - 1, positionOffset: vector_float3(Float.random(in: -0.2...0.2), Float.random(in: -0.2...0.2), Float.random(in: -0.3...0)), axis: vector_float3(Float.random(in: 0...Float.pi),Float.random(in: 0...Float.pi),Float.random(in: 0...Float.pi)), flatten: Float.random(in: 0.05...1), prescale: 0.0625, squeeze: Float.random(in: 1...2))
+            }
         default:
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.25)
         }
@@ -478,13 +510,12 @@ class StarSimulation : NSObject {
 */
                     // option 2 , place galaxy, should be "offline", as really slow.
                     
-                    /*
                     rotateGalaxies += Int(_config.numBodies)/8
                     if rotateGalaxies  > _config.numBodies  {
                         rotateGalaxies = 0
                     }
 
-                    makegalaxyonlyaddparticles(first: rotateGalaxies, last: rotateGalaxies + Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(0, 0, 0), flatten: 0.05, prescale: 0.125, squeeze: 2) */
+                    makegalaxyonlyaddparticles(first: rotateGalaxies, last: rotateGalaxies + Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(0, 0, 0), flatten: 0.05, prescale: 0.125, squeeze: 2) 
                     
                     
     //option 3  -- place stars
@@ -523,7 +554,7 @@ class StarSimulation : NSObject {
                     addParticles(first: previous, last: rotateParticles - 1)
                   */
                     
-                    halt = true
+                  // this to go to add particles / writing in the sky mode  halt = true
                 }
                 
  
@@ -606,6 +637,8 @@ class StarSimulation : NSObject {
             computeEncoder.setBuffer(_simulationParams, offset: 0, index: Int(starComputeBufferIndexParams.rawValue))
             computeEncoder.setBuffer(_blocks[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexBlock.rawValue))
             computeEncoder.setBuffer(spectatorMovement[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexTracking.rawValue))
+            computeEncoder.setBytes(&partitions, length: MemoryLayout<UInt>.size, index: Int(starComputeBufferIndexPartitions.rawValue))
+
             computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // duplicate
             computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
             

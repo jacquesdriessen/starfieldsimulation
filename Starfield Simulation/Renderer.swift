@@ -67,7 +67,6 @@ class Renderer {
     var _renderScale: Float = 1
     var dayLightMode: Float = 0.5
     var laserPointer: Bool = true
-
     
     // Captured image texture cache
     var capturedImageTextureCache: CVMetalTextureCache!
@@ -518,10 +517,13 @@ class Renderer {
         renderEncoder.setVertexBuffer(_interpolation, offset: 0, index: Int(starRenderBufferIndexInterpolation.rawValue))
         renderEncoder.setVertexBuffer(_colors, offset: 0, index: Int(starRenderBufferIndexColors.rawValue))
         renderEncoder.setVertexBuffer(sharedUniformBuffer, offset: sharedUniformBufferOffset, index: Int(starRenderBufferIndexSharedUniforms.rawValue))
+
+        
+        var partitioner : Float = (1.0 / Float(numBodies)) * (Float(min(8,max(partitions,1))) / 8.0) // 0...1 is color spectrum, 8 primary colours, e.g. want to map it this way.
+        print(partitioner*32768)
         renderEncoder.setFragmentTexture(gaussianMap, index: Int(starTextureIndexColorMap.rawValue))
         renderEncoder.setFragmentBytes(&falseColour, length: MemoryLayout<Bool>.size, index: Int(starTextureIndexFalseColour.rawValue))
-        renderEncoder.setFragmentBytes(&split, length: MemoryLayout<UInt>.size, index: Int(starTextureIndexSplit.rawValue))
-
+        renderEncoder.setFragmentBytes(&partitioner, length: MemoryLayout<Float>.size, index: Int(starTextureIndexPartitioner.rawValue))
 
         renderEncoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: numBodies, instanceCount: 1)
         

@@ -113,7 +113,7 @@ vertex StarColorInOut starVertexShader(
 fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
                                   texture2d<half>  colorMap [[ texture(starTextureIndexColorMap)  ]],
                                   constant bool &  falseColour [[ buffer(starTextureIndexFalseColour)]],
-                                  constant uint &  split [[ buffer(starTextureIndexSplit)]],
+                                  constant float &  partitioner [[ buffer(starTextureIndexPartitioner)]],
                                   float2           texcoord [[ point_coord ]]) {
     constexpr sampler linearSampler (mip_filter::none,
                                      mag_filter::linear,
@@ -128,25 +128,24 @@ fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
     half  a = fragColor.w;
 
     if (inColor.radius > 10) { // this is when we interact, don't show.... actually that's the whole point right?, so show in bright yellow.
-        x = half4(1.0h, 1.0h, .0h, x.w);
-        y = half4(1.0h, 1.0h, .0h, y.w);
-        fragColor = half4(1.0h, 1.0h, .0h, fragColor.w);
+          fragColor = half4(1.0h, 1.0h, .0h, fragColor.w);
     } else if (inColor.radius > 2.5) { // black hole is green
-        x = half4(.0h, 1.0h, .0h, x.w);
-        y = half4(.0h, 1.0h, .0h, y.w);
         fragColor = half4(.0h, 1.0h, .0h, fragColor.w);
     } else if (falseColour) {
-        if (inColor.vertexID < split) {
-            x = half4(1.0h, 0.0h, 0.0h, 1.0h); // red
-            y = half4(1.0h, 0.0h, 0.0h, 1.0h); // red
-            fragColor = half4(1.0h, 0.0h, 0.0h, fragColor.w); // red
-        } else {
-            x = half4(0.0h, 0.0h, 1.0h, 1.0h); // blue
-            y = half4(0.0h, 0.0h, 1.0h, 1.0h); // blue
-            fragColor = half4(0.0h, 0.0h, 1.0h, fragColor.w); // blue
-        }
-
-    } else if (inColor.radius > 1.5) { // big stars are blue-ish
+        float angle = M_PI_F * float(inColor.vertexID) * partitioner;
+        float phase = 1.0/3.0 * M_PI_F;
+        float r = cos(angle);
+        float g = cos(angle + phase );
+        float b = cos(angle + 2*phase );
+        float rr = r*r;
+        float gg = g*g;
+        float bb = b*b;
+        
+        //x = half4(rr, gg, bb, 1.0h);
+        //y = half4(rr, gg, bb, 1.0h);
+        fragColor = half4(rr, gg, bb, fragColor.w);
+    }
+    else if (inColor.radius > 1.5) { // big stars are blue-ish
         fragColor = half4(0.5h * fragColor.x, 0.5h * fragColor.y, 0.5h + 0.5h * fragColor.z, fragColor.w);
         
     } else if (inColor.radius < 1.2) { // small stars are reddish

@@ -36,6 +36,8 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
                             constant StarSimParams & params            [[ buffer(starComputeBufferIndexParams)      ]],
                             constant StarBlock & block                 [[ buffer(starComputeBufferIndexBlock)       ]],
                             constant Tracking & tracking               [[ buffer(starComputeBufferIndexTracking)    ]],
+                            constant int &  _partitions [[ buffer(starComputeBufferIndexPartitions)]],
+
                             threadgroup float4     * sharedPosition    [[ threadgroup(0)                            ]],
                             const uint               threadInGrid      [[ thread_position_in_grid                   ]],
                             const uint               threadInGroup     [[ thread_position_in_threadgroup            ]],
@@ -50,13 +52,14 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
     
     const float softeningSqr = params.softeningSqr;
     
-    const uint split = block.collide? params.numBodies : block.split;
     
-    bool partition = (threadGlobal < split) ? 0 : 1;
-    const uint particles = (threadGlobal < split) ? split : params.numBodies - split;
+    const uint partitions = block.collide? 1 : _partitions; // const uint split = block.collide? params.numBodies : block.split;
+    
+    int partition = threadGlobal / (params.numBodies / partitions); // this should not be a bool right? bool partition = (threadGlobal < split) ? 0 : 1;
+    const uint particles = params.numBodies / partitions; // const uint particles = (threadGlobal < split) ? split : params.numBodies - split;
         
     // For each particle / body
-    uint sourcePosition = threadInGroup + (partition * split);
+    uint sourcePosition = threadInGroup + (partition * particles); // uint sourcePosition = threadInGroup + (partition * split);
 
     for(i = 0; i < particles; i += numThreadsInGroup)
         {
