@@ -520,7 +520,6 @@ class Renderer {
 
         
         var partitioner : Float = (1.0 / Float(numBodies)) * (Float(min(16,max(partitions,1))) / 16.0) // 0...1 is color spectrum, ~ 16 colours , e.g. want to map it this way.
-        print(partitioner*32768)
         renderEncoder.setFragmentTexture(gaussianMap, index: Int(starTextureIndexColorMap.rawValue))
         renderEncoder.setFragmentBytes(&falseColour, length: MemoryLayout<Bool>.size, index: Int(starTextureIndexFalseColour.rawValue))
         renderEncoder.setFragmentBytes(&partitioner, length: MemoryLayout<Float>.size, index: Int(starTextureIndexPartitioner.rawValue))
@@ -624,7 +623,7 @@ class Renderer {
     }
     
     func decreaseStarSize() {
-        if starSize > 2.5 {
+        if starSize > 1.25 {
             starSize *= 1/1.25 // decrease size
         }
     }

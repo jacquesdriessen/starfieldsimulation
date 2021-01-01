@@ -17,7 +17,8 @@ typedef enum StarComputeBufferIndex
     starComputeBufferIndexParams      = 4,
     starComputeBufferIndexBlock       = 5,
     starComputeBufferIndexTracking    = 6,
-    starComputeBufferIndexPartitions  = 7
+    starComputeBufferIndexPartitions  = 7,
+    starComputeBufferIndexPass        = 8
 } StarComputeBufferIndex;
 
 typedef struct StarSimParams

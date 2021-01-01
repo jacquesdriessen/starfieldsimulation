@@ -78,6 +78,7 @@ class StarSimulation : NSObject {
 
     var rotateGalaxies = 0
     var rotateParticles = 0
+    var pass = 0
     
     var movement: SpecatorMovement = SpecatorMovement(position: vector_float4(0,0,0,0), velocity: vector_float4(0,0,0,0))
 
@@ -217,6 +218,7 @@ class StarSimulation : NSObject {
         pinch = 1 // no squeezing space anymore
         rotateGalaxies = 0 // for placing galaxies
         partitions += 1 // increase partitions.
+        pass = 0 // start at pass one again
 
         makegalaxyonlyaddparticles(first: first, last: last, positionOffset: positionOffset, velocityOffset: velocityOffset, axis: axis, flatten: flatten, prescale: prescale, vrescale: vrescale, vrandomness: vrandomness, squeeze: squeeze, collision_enabled: collision_enabled)
     }
@@ -465,6 +467,7 @@ class StarSimulation : NSObject {
                 _newBufferIndex = tmpIndex
                 
                 _simulationTime += CFAbsoluteTime(_config.simInterval)
+                pass = pass - 1 // next pass.
                 
                 let blocks = _blocks[_oldBufferIndex].contents().assumingMemoryBound(to: StarBlock.self) // ensure we start at the beginning with compute!
                 blocks[0].split = split
@@ -640,6 +643,7 @@ class StarSimulation : NSObject {
             computeEncoder.setBuffer(_blocks[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexBlock.rawValue))
             computeEncoder.setBuffer(spectatorMovement[_oldBufferIndex], offset: 0, index: Int(starComputeBufferIndexTracking.rawValue))
             computeEncoder.setBytes(&partitions, length: MemoryLayout<UInt>.size, index: Int(starComputeBufferIndexPartitions.rawValue))
+            computeEncoder.setBytes(&pass, length: MemoryLayout<UInt>.size, index: Int(starComputeBufferIndexPass.rawValue))
 
             computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // duplicate
             computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
