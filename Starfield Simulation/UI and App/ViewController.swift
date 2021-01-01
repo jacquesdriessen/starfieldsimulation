@@ -11,6 +11,7 @@ import ARKit
 
 // get some global variables as otherwise we just passing things around
 var partitions = 1
+var trackingMatrix = matrix_identity_float4x4
 
 @IBDesignable class MyButton: UIButton
 {
@@ -74,7 +75,7 @@ var partitions = 1
 extension MTKView : RenderDestinationProvider {
 }
 
-class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPickerViewDelegate, UIPickerViewDataSource {
+class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDelegate, ARSessionDelegate, UIPickerViewDelegate, UIPickerViewDataSource {
 
     var _view: MTKView!
     var session: ARSession!
@@ -209,21 +210,31 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
         view.addGestureRecognizer(doubleTapGesture)
         doubleTapGesture.numberOfTapsRequired = 2
 */
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleTap(gestureRecognize:)))
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(ViewController.handleTap))
         view.addGestureRecognizer(tapGesture)
         tapGesture.numberOfTapsRequired = 1
+        tapGesture.delegate = self
   //      tapGesture.require(toFail: doubleTapGesture)
    
-        let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(ViewController.handlePinch(gestureRecognize:)))
-        view.addGestureRecognizer(pinchGesture)
-        /*
-        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(ViewController.handlePan(gestureRecognize:)))
-        view.addGestureRecognizer(panGesture)
-        panGesture.require(toFail: tapGesture)*/
 
-        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(ViewController.handleLongPress(gestureRecognize:)))
-        view.addGestureRecognizer(longPress)
-        longPress.minimumPressDuration = 0.5
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(ViewController.handlePan))
+        view.addGestureRecognizer(panGesture)
+        panGesture.delegate = self
+        // ? needed or not panGesture.require(toFail: tapGesture)
+
+        let pinchGesture = UIPinchGestureRecognizer(target: self, action: #selector(ViewController.handlePinch))
+        view.addGestureRecognizer(pinchGesture)
+        pinchGesture.delegate = self
+        
+        let rotationGesture = UIRotationGestureRecognizer(target: self, action: #selector(ViewController.handleRotation))
+        view.addGestureRecognizer(rotationGesture)
+        rotationGesture.delegate = self
+
+        
+        let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(ViewController.handleLongPress))
+        view.addGestureRecognizer(longPressGesture)
+        longPressGesture.minimumPressDuration = 0.5
+        longPressGesture.delegate = self
 
    }
 
@@ -316,154 +327,129 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     */
     
     @objc
-    func handleTap(gestureRecognize: UITapGestureRecognizer) {
-        guard gestureRecognize.view != nil else {
-            return
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer.view != nil else {
+            return false
+        }
+        // define all the simulatenously allowed gestures
+        if gestureRecognizer is UIPinchGestureRecognizer &&
+            (otherGestureRecognizer is UIRotationGestureRecognizer ||
+                otherGestureRecognizer is UIPanGestureRecognizer) {
+            return true
+        }
+
+        if gestureRecognizer is UIPinchGestureRecognizer &&
+            (otherGestureRecognizer is UIRotationGestureRecognizer ||
+                otherGestureRecognizer is UIPanGestureRecognizer){
+            return true
+        }
+        
+        if gestureRecognizer is UIPanGestureRecognizer &&
+            (otherGestureRecognizer is UIRotationGestureRecognizer ||
+                otherGestureRecognizer is UIPinchGestureRecognizer){
+            return true
+        }
+        
+        
+        return false;
+    }
+
+    
+    
+    @objc
+    func handleTap(gestureRecognizer: UITapGestureRecognizer) -> Bool {
+        guard gestureRecognizer.view != nil else {
+            return false
         }
 
         showUI()
-        fingerScreenCoordinates = gestureRecognize.location(in: self.view)
+        fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
 
         if (_simulation.halt == true) { // need a different place / method I guess, this is ia hack
             _simulation.halt = false
         }
-    
-        /*
-        if gestureRecognize.state == .began {
-        }
-      
-        if gestureRecognize.state == .ended {
-            let x = 200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width // coordinates -100...100
-            let y = 200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height  // coordinates -100...100
-   /*
-            if x < -80 && abs(y) < 50 { // unambiguous left
-                // disable false colour mode as going to next simulation
-                renderer.disableFalseColours()
-                // make sure we are not processing stuff on the gpu before we modify data.
-                _simulation.previousmodel(semaphore: renderer.inFlightSemaphore)
-            } else if x > 80 && abs(y) < 50 { // unambiguous right
-                // disable false colour mode as going to next simulation
-                renderer.disableFalseColours()
-                // make sure we are not processing stuff on the gpu before we modify data.
-                _simulation.nextmodel(semaphore: renderer.inFlightSemaphore)
-            } else if y < -80 && abs(x) < 50 { // unambigous top
-                // make sure we are not processing stuff on the gpu before we modify data.
-                _simulation.collide(semaphore: renderer.inFlightSemaphore)
-            } else if y > 80 && abs(x) < 50 { // unambigous bottom
-                // make sure we are not processing stuff on the gpu before we modify data.
-                _simulation.leaveAlone(semaphore: renderer.inFlightSemaphore)
-            } else */if abs(x) < 50 && abs(y) < 50 { // unambigous middle}
-                renderer.toggleFalseColours(_split: UInt(_simulation.split))
-            } /*else if x < -80 && y > 80 { // unambiguous bottom left corner
-                renderer.decreaseStarSize()
-            } else if x > 80 && y > 80 { // unambiguous bottom right corner
-                renderer.increaseStarSize()
-            } else if x < -80 && y < -80 { // unambiguous top left corner
-                renderer.decreaseCameraExposure()
-            } else if x > 80 && y < -80 { // unambiguous top right corner
-                renderer.increaseCameraExposure()
-            }*/
-        } */
+        
+        return true
     }
     
     @objc
-    func handleLongPress(gestureRecognize: UILongPressGestureRecognizer) {
-        guard gestureRecognize.view != nil else {
-            return
+    func handleLongPress(gestureRecognizer: UILongPressGestureRecognizer) -> Bool{
+        guard gestureRecognizer.view != nil else {
+            return false
         }
         
         showUI()
-        fingerScreenCoordinates = gestureRecognize.location(in: self.view)
+        fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
 
-        if gestureRecognize.state == .began {
+        if gestureRecognizer.state == .began {
             blackHoleMode = true
             _simulation.interact = true
         }
  
-        if gestureRecognize.state == .ended {
+        if gestureRecognizer.state == .ended {
             blackHoleMode = false
             _simulation.interact = false
         }
+        
+        return true
     }
  
-
     @objc
-    func handlePinch(gestureRecognize: UIPinchGestureRecognizer) {
-        guard gestureRecognize.view != nil else {
-            return
+    func handlePan(gestureRecognizer: UIPanGestureRecognizer) -> Bool{
+        guard gestureRecognizer.view != nil else {
+            return false
         }
         
-        showUI()
-        fingerScreenCoordinates = gestureRecognize.location(in: self.view)
-
-        // WE NEED TO MOVE THIS SOMEWHERE ELSE
-        // _simulation.squeeze(_pinch: Float(gestureRecognize.scale))
+        fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
         
         
-        if gestureRecognize.state == .began || gestureRecognize.state == .changed {
-            let velocity = Float(gestureRecognize.velocity)
-
-            let direction = extractOrientationMatrix(fullmatrix: cameraMatrix()) * vector_float4(0,0,-1, 1)
+        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
+            let velocity = gestureRecognizer.velocity
             
-            _simulation.move(position: 0.5*velocity*direction)
-            
-            
+            trackingMatrix = rotationMatrix(rotation: vector_float3(0, -Float(velocity(gestureRecognizer.view!.superview!).x)/32768,-Float(velocity(gestureRecognizer.view!.superview!).y)/32768)) * trackingMatrix
         }
         
-        // Show UI explanation
-        if gestureRecognize.state == .began {
-            pinchLabel.alpha = 1.0
-        }
-        
-        if gestureRecognize.state == .ended {
-            _simulation.squeeze(_pinch:1)
-            pinchLabel.alpha = 0
-        }
+        return true
     }
-    /*
+    
     @objc
-    func handlePan(gestureRecognize: UIPanGestureRecognizer) {
-        guard gestureRecognize.view != nil else {
-            return
-
-        showUI()
-        fingerScreenCoordinates = gestureRecognize.location(in: self.view)
-
-        /*
-        let x : Float = Float(200*(gestureRecognize.location(in: self.view).x-0.5*view.frame.size.width)/view.frame.size.width) // coordinates -100...100
-        let y : Float = Float(200*(gestureRecognize.location(in: self.view).y-0.5*view.frame.size.height)/view.frame.size.height)  // coordinates -100...100
-        
-        if horizontalPan {
-            /*_simulation.speed = min(max(Float(-200.0),_simulation.speed + 0.01*Float(gestureRecognize.translation(in: gestureRecognize.view!.superview!).x)), Float(200.0)) // keep between -200 and 200% */
-            _simulation.speed = 1.5 * x // keep between -150% and + 150%
-        }
-
-        if verticalPan {
-            _simulation.gravity = 2 * 0.5*(y+100) // keep between 0 and 200%
+    func handlePinch(gestureRecognizer: UIPinchGestureRecognizer) -> Bool {
+        guard gestureRecognizer.view != nil else {
+            return false
         }
         
+        fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
         
-        if gestureRecognize.state == .began {
-
-            if (abs(x) < 25) { // only start if we purposely start from the middle
-                verticalPan = true
-            } else {
-                verticalPan = false
-            }
-
-            if (abs(y) < 25) { // only start if we purposely start from the middle
-                horizontalPan = true
-            } else {
-                horizontalPan = false
-            }
+        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
+            
+            let velocity = Float(gestureRecognizer.velocity)
+            trackingMatrix = trackingMatrix *  translationMatrix(translation:vector_float4(0,0,velocity/16,1))
         }
         
-        if gestureRecognize.state == .ended {
-            horizontalPan = false
-            verticalPan = false
-        } */
+        return true
     }
- */
+    
+    @objc
+    func handleRotation(gestureRecognizer: UIRotationGestureRecognizer) -> Bool {
+        guard gestureRecognizer.view != nil else {
+            return false
+        }
+        
+        fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
+        
+        
+        if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
+            let velocity = gestureRecognizer.velocity
+            
+            trackingMatrix = rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * trackingMatrix
+        }
+        
+        return true
+    }
+
+    
+    
    
     // MARK: - MTKViewDelegate
     

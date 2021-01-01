@@ -40,8 +40,9 @@ typedef enum TextureIndices {
 //    Metal shaders matches the layout of uniform data set in C code
 typedef struct {
     // Camera Uniforms
-    matrix_float4x4 projectionMatrix;
+//    matrix_float4x4 projectionMatrix;
     matrix_float4x4 viewMatrix;
+    matrix_float4x4 sharedMatrix;
     float           starSize;
 } SharedUniforms;
 

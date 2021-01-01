@@ -67,7 +67,7 @@ typedef struct
 {
     float4 position [[position]];
     float  pointSize [[point_size]];
-    half3  eyePosition;
+ //   half3  eyePosition;
     half4  color;
     float  radius;
     uint   vertexID;
@@ -90,16 +90,18 @@ vertex StarColorInOut starVertexShader(
     float4 position = (1.0-interpolation)*float4(positions1[vertexID].xyz, 1.0) + interpolation*float4(positions2[vertexID].xyz, 1.0); // (1) interpolates as we can do less computation than we need to do rendering
     
   //  float4x4 modelMatrix = instanceUniforms[iid].modelMatrix; // in case we have 3d stars, this can have things like rotation in it.
-    float4x4 modelViewMatrix = sharedUniforms.viewMatrix; // * modelMatrix;
+    //  float4x4 modelMatrix = instanceUniforms[iid].modelMatrix;
+      float4x4 modelViewMatrix = sharedUniforms.viewMatrix; // * modelMatrix;
     
     // Calculate the position of our vertex in clip space and output for clipping and rasterization
-    out.position = sharedUniforms.projectionMatrix * modelViewMatrix * position;
+    out.position = sharedUniforms.sharedMatrix * position;// sharedUniforms.projectionMatrix * modelViewMatrix * position;
+    
     
     // Calculate the position of our vertex in eye space
-    out.eyePosition = half3((modelViewMatrix * position).xyz);
+   // out.eyePosition = half3((modelViewMatrix * position).xyz);
     
     out.color = half4(color[vertexID]) / 255.0h;
-
+//// do we need both???? probably  yes, one how big it looks, the other the mass.
     out.radius = abs(positions1[vertexID].w); //positions[vertexID].w holds radius of the star, if negative, just means negative mass, not radius!!
     
     out.pointSize = out.radius * sharedUniforms.starSize / distance((modelViewMatrix * position).xyz, out.position.xyz);
@@ -175,10 +177,10 @@ vertex InteractiveInOut interactiveVertexShader(const device InteractiveVertex *
     float4 position = float4(in.position.xyz, 1);
     
     //  float4x4 modelMatrix = instanceUniforms[iid].modelMatrix;
-    float4x4 modelViewMatrix = sharedUniforms.viewMatrix; // * modelMatrix;
+  //  float4x4 modelViewMatrix = sharedUniforms.viewMatrix; // * modelMatrix;
     
     // Calculate the position of our vertex in clip space and output for clipping and rasterization
-    out.position = sharedUniforms.projectionMatrix * modelViewMatrix * position;
+    out.position = sharedUniforms.sharedMatrix * position;// sharedUniforms.projectionMatrix * modelViewMatrix * position;
 
     out.color = half4(in.color);
     
