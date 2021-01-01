@@ -381,8 +381,9 @@ class StarSimulation : NSObject {
         case 1: // one round odd galaxy
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, squeeze: 2)
         case 2: // small & big galaxy
-            makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
-            zeroparticles(first: Int(_config.numBodies)/8, last: Int(_config.numBodies)/2 - 1)
+          /*  makegalaxy(first:0, last: Int(_config.numBodies)/8 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
+             zeroparticles(first: Int(_config.numBodies)/8, last: Int(_config.numBodies)/2 - 1) */ // hack makes things nonsense if distribution not semirandom .e.g all galaxies need same number of bodies
+            makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), flatten: 0.05, prescale: 0.125, squeeze: 2)
             makegalaxy(first: Int(_config.numBodies)/2,  last: Int(_config.numBodies) - 1, positionOffset: vector_float3(0.15, 0, 0), axis: vector_float3(0, Float.pi/2, 0), flatten: 0.05, squeeze: 2)
         case 3: // equal galaxies, parallel
             makegalaxy(first:0, last: Int(_config.numBodies)/2 - 1, positionOffset: vector_float3(-0.15, 0.05, 0), axis: vector_float3(0,Float.pi/2,Float.pi/2), flatten: 0.05, squeeze: 2)
