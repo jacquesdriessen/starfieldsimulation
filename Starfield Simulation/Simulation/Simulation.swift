@@ -166,19 +166,27 @@ class StarSimulation : NSObject {
         let position_anchor = positions[anchor]
         let position_last = position_transformation * vector_float4(0, 0, 0, 1)
         
+        
         for index in first...last {
             let interpolation : Float = Float(index + 1 - first) / Float(last + 1 - first)
             let position = interpolation * position_last + (1 - interpolation) * position_anchor
 
-            positions[index] = position
-            positions[index].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
-            velocities[index] = vector_float4(0, 0, 0, 0)
+            var random_index : Int = 0
+
+            if (index == last ) { //last can't be random as we need to string things together
+                random_index = last
+            } else {
+                random_index = Int.random(in: 0...Int(_config.numBodies)) // otherwise writing destroys galaxies instead of other way around (due to the partition hack)
+            }
+            positions[random_index] = position
+            positions[random_index].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
+            velocities[random_index] = vector_float4(0, 0, 0, 0)
             
             // in case we are "on halt", we still want it to display, e.g. copy to all buffers
-            positions2[index] = positions[index]
-            positions3[index] = positions[index]
-            velocities2[index] = velocities[index]
-            velocities3[index] = velocities[index]
+            positions2[random_index] = positions[random_index]
+            positions3[random_index] = positions[random_index]
+            velocities2[random_index] = velocities[random_index]
+            velocities3[random_index] = velocities[random_index]
         }
     }
     
@@ -317,7 +325,8 @@ class StarSimulation : NSObject {
             velocities[i] = velocity_transformation * velocities[i]
             positions[i].w = temp_radius // restores .w
             
-            // in case we are "on halt", we still want it to display, e.g. copy to all buffers
+            // in case we are "on halt", we still want it to display, e.g. copy to all buffers - maybe this should be on the GPU.
+            
             positions2[i] = positions[i]
             positions3[i] = positions[i]
             velocities2[i] = velocities[i]
@@ -441,6 +450,7 @@ class StarSimulation : NSObject {
     func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer, touch: vector_float2, finger: vector_float4) {
         if (halt && interact) { // need to clearn this up, this is nonsensical this way
 /* anyway, this sort of works, probably can go in .  */
+            
             let step = 8
             let previous = rotateParticles
             rotateParticles += step

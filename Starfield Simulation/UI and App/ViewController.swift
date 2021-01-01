@@ -265,7 +265,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.01, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000320, simDuration: 100 /* dont think thtis was implemented */)
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.08, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000640, simDuration: 100 /* dont think thtis was implemented */) // this is fairly realistic (my opinion)
       //  _config = SimulationConfig(damping: 1, softeningSqr: 2*2*0.16, numBodies: 2*32768, clusterScale: 0.05, velocityScale: 25000, renderScale: 2*40, renderBodies: 16 /* not implemented */, simInterval: 2*2*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
-        _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 8*32768, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 1/16*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
+        _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 262144, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 1/16*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // can go up this high because of the hack, but takes a long time to "load" a galaxy, maybe something we can do (copying could be done on the GPU?)
         
         // Configure the renderer to draw to the view
         renderer = Renderer(session: session, metalDevice: _view.device!, renderDestination: _view, numBodies: Int(_config.numBodies))
@@ -494,7 +494,7 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
     
     func screenCoordinatesToNormalCoordinates(screenCoordinates: CGPoint) -> vector_float2 {
         let x : Float = 1  * ( 2 * Float(screenCoordinates.x) / Float(view.frame.size.width) - 1) // 0.001 is that scaling factor
-        let y : Float = -1 * ( 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1) // for whatever reason this is upside down.
+        let y : Float = -1 * ( 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1) // for whatever reason this is upside down. I think because top left = 0,0 / top bottom = 1 1 in "texture space".
 
         return vector_float2(x,y)
     }
@@ -515,9 +515,9 @@ class ViewController: UIViewController, MTKViewDelegate, ARSessionDelegate, UIPi
 
         // where we are on the tablet
         let deviceCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates:screenCoordinates)
-        let deviceCoordinates_device3D = vector_float4(deviceCoordinates.x, deviceCoordinates.y, 0, 0) // This is 2D I know, but that
+        let deviceCoordinates_device3D = vector_float4(deviceCoordinates.x, deviceCoordinates.y, 0, 0) // This is 2D I know, but need to find away to deal with orientation!!
         
-        let point = inverse_transform * (deviceMiddle_device3D + deviceCoordinates_device3D) //  figure out where we are compared to where the device is
+        let point = inverse_transform * deviceMiddle_device3D + extractOrientationMatrix(fullmatrix: cameraMatrix()) * inverse_transform * deviceCoordinates_device3D; //  first part is to make sure we do everything compared to where the device, is second is the screen, but need to make sure we correct for the plane of the device (e.g. just the rotation of the camera.
 
         return point
         

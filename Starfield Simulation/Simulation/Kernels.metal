@@ -47,7 +47,7 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
 
     float interaction_multiplier = partitions / ( block.collide? 1 : _partitions); // As w are cheating (only calculating 1 / partitions each pass), in collide mode it's easy, multiply by partitions (*16), in the other mode, we need to account for the partitions the calculating thinks we have (in case of == partitions, don't need to do anything).
 
-    if (pass == 0 || block.collide == false)
+    if (pass == 0 || (block.collide == false && _partitions > 1)) // if no collissions, in principle only execute the "kernel where things only interact in the partition, however if 1 partition, can still alternate between things and make it more real (otherwise we would create a galaxy that will eventually split up in partitions, maybe something smart we can do to have that for different partition sizes but this is just for fun :-).
     {
         // mode 1
         const uint threadGlobal = threadInGrid + block.begin;
