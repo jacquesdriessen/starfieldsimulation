@@ -40,7 +40,6 @@ let bodyPointSize = 15;
 let gaussianMapSize = 64;
 
 class Renderer {
-    let arEnabled: Bool = false
     let session: ARSession
     let device: MTLDevice
     let inFlightSemaphore = DispatchSemaphore(value: kMaxBuffersInFlight)
@@ -425,7 +424,7 @@ class Renderer {
         
         let cameraMatrix = arEnabled ? frame.camera.viewMatrix(for: .landscapeRight) : matrix_identity_float4x4
         let myScaleMatrix = scaleMatrix(scale: 1/_renderScale)
-        let viewMatrix = cameraMatrix * myScaleMatrix * trackingMatrix
+        let viewMatrix = trackingMatrix * cameraMatrix * myScaleMatrix
         let projectionMatrix = frame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
             
         uniforms.pointee.viewMatrix = viewMatrix

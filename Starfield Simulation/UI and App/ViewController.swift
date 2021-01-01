@@ -12,6 +12,7 @@ import ARKit
 // get some global variables as otherwise we just passing things around
 var partitions = 1
 var trackingMatrix = matrix_identity_float4x4
+let arEnabled: Bool = true
 
 @IBDesignable class MyButton: UIButton
 {
@@ -406,8 +407,9 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
+            let centerMatrix = translationMatrix(translation:vector_float4(0,0,-0.05,1)) // so we can do the rotation "where we can see it", not too much otherwise looks weird
             
-            trackingMatrix = rotationMatrix(rotation: vector_float3(0, -Float(velocity(gestureRecognizer.view!.superview!).x)/32768,-Float(velocity(gestureRecognizer.view!.superview!).y)/32768)) * trackingMatrix
+            trackingMatrix = centerMatrix * rotationMatrix(rotation: vector_float3(0, -Float(velocity(gestureRecognizer.view!.superview!).x)/32768,-Float(velocity(gestureRecognizer.view!.superview!).y)/32768)) * centerMatrix.inverse * trackingMatrix
         }
         
         return true
@@ -424,7 +426,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             
             let velocity = Float(gestureRecognizer.velocity)
-            trackingMatrix = trackingMatrix *  translationMatrix(translation:vector_float4(0,0,velocity/16,1))
+            trackingMatrix = translationMatrix(translation:vector_float4(0,0,velocity/16,1)) * trackingMatrix
         }
         
         return true
@@ -438,11 +440,11 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
         
-        
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
+            let centerMatrix = translationMatrix(translation:vector_float4(0,0,-0.05,1)) // so we can do the rotation "where we can see it", not too much otherwise looks weird
             
-            trackingMatrix = rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * trackingMatrix
+            trackingMatrix = centerMatrix * rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * centerMatrix.inverse * trackingMatrix
         }
         
         return true
@@ -489,8 +491,8 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         // https://jsantell.com/3d-projection/ to learn about projections.
         // there should be a more straightforward way, but I think this makes sense to me.
 
-        let forward_transform = projectionMatrix() * cameraMatrix()                     // transformation (<- direction) device3D  <- world
-        let inverse_transform = cameraMatrix().inverse * projectionMatrix().inverse     // transformation (<- direction) world     <- device3D
+        let forward_transform = projectionMatrix() * (arEnabled ?  cameraMatrix() : matrix_identity_float4x4)                    // transformation (<- direction) device3D  <- world
+        let inverse_transform = (arEnabled ?  cameraMatrix().inverse : matrix_identity_float4x4) * projectionMatrix().inverse     // transformation (<- direction) world     <- device3D
                                                                                         // transformation (<- direction) device2D  <- device3D = drop z & w
                                                                                         // transformation (<- direction) device3D  <- device2D is the hard bit, requires knowledge of the device (end of the day 2D) and it's orientation & how it scales to the real world. For the middle of device & world, it's easy.
 
@@ -550,7 +552,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         // pass camera position through to simulation, need to be smarter about this.
         if let currentFrame = session.currentFrame {
-            _simulation.camera = currentFrame.camera.transform
+            _simulation.camera = arEnabled ? currentFrame.camera.transform  : matrix_identity_float4x4 // ad this may break stuff.
         }
                
         if _simulation != nil {

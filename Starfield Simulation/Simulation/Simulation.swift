@@ -150,8 +150,8 @@ class StarSimulation : NSObject {
         let offset_3 = vector_float3(0,0,-1)
         
         let translation_3 = 0.5*(pointer_3 + offset_3)
-
-        let rightInFrontOfCamera = camera * translationMatrix(translation: translation_3)
+        // definitely is suspicous, not sure how this works, but need to redo!
+        let rightInFrontOfCamera = (arEnabled ? camera : matrix_identity_float4x4) * trackingMatrix.inverse * translationMatrix(translation: translation_3) // not sure the order is ok!!, or how inverse vs normal works, anyway, this is how it works so something must be right :-).
         
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -218,8 +218,9 @@ class StarSimulation : NSObject {
         
         blockBegin = 0 // make sure we start calculations from the beginning.
         advanceIndex = true // make sure we start calculations from the beginning.
-        
-        track = 0 // stop tracking
+
+        trackingMatrix = matrix_identity_float4x4
+        track = 0 // stop tracking, I think this needs to go now we got the matrix stuff working.
         collide = collision_enabled
         speed = 100 // back to default speed
         gravity = 100 // back to default gravity
@@ -227,6 +228,7 @@ class StarSimulation : NSObject {
         rotateGalaxies = 0 // for placing galaxies
         partitions += 1 // increase partitions.
         pass = 0 // start at pass one again
+
 
         makegalaxyonlyaddparticles(first: first, last: last, positionOffset: positionOffset, velocityOffset: velocityOffset, axis: axis, flatten: flatten, prescale: prescale, vrescale: vrescale, vrandomness: vrandomness, squeeze: squeeze, collision_enabled: collision_enabled)
     }
