@@ -142,16 +142,18 @@ class StarSimulation : NSObject {
         return x_product
     }
     
-    func addParticles(first: Int, last: Int, touch: vector_float2 = vector_float2(0,0), finger: vector_float4 = vector_float4(0,0,0,0)) {
+    func addParticles(first: Int, last: Int, finger: vector_float4 = vector_float4(0,0,0,0)) {
         
         let pointer = finger - camera.columns.3
         let pointer_3 = vector_float3(pointer.x, pointer.y, pointer.z)
         
         let offset_3 = vector_float3(0,0,-1)
+
         
         let translation_3 = 0.5*(pointer_3 + offset_3)
-        // definitely is suspicous, not sure how this works, but need to redo!
-        let rightInFrontOfCamera = (arEnabled ? camera : matrix_identity_float4x4) * trackingMatrix.inverse * translationMatrix(translation: translation_3) // not sure the order is ok!!, or how inverse vs normal works, anyway, this is how it works so something must be right :-).
+        // definitely is suspicous, not sure how this works, but need to redo! or commnet. sort of wo
+        // in short, the translation matrix is "in AR space", how much the finger is from the camrea + orientation, so that makes sense. However, to go back from AR space -> particles, we need to invert the trasnlation we've done. sort of works, but don't fully trust it to be honest. -1 is "lucky" as z will be 1 etc.
+        let rightInFrontOfCamera = trackingMatrix.inverse * (arEnabled ? camera : matrix_identity_float4x4) * translationMatrix(translation: translation_3) // not sure the order is ok!!, or how inverse vs normal works, anyway, this is how it works so something must be right :-).
         
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -457,7 +459,7 @@ class StarSimulation : NSObject {
             let previous = rotateParticles
             rotateParticles += step
             
-            addParticles(first: previous, last: rotateParticles - 1, touch: touch, finger: finger)
+            addParticles(first: previous, last: rotateParticles - 1, finger: finger)
 
             if rotateParticles  >= _config.numBodies  {
                 rotateParticles = 0

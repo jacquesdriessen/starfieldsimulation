@@ -104,7 +104,7 @@ vertex StarColorInOut starVertexShader(
 //// do we need both???? probably  yes, one how big it looks, the other the mass.
     out.radius = abs(positions1[vertexID].w); //positions[vertexID].w holds radius of the star, if negative, just means negative mass, not radius!!
     
-    out.pointSize = out.radius * sharedUniforms.starSize / distance((modelViewMatrix * position).xyz, out.position.xyz);
+    out.pointSize = out.radius * sharedUniforms.starSize / distance((modelViewMatrix * position).xyz, out.position.xyz); // NEED CHECK WITH ALL THE NON AR STUFF STILL OK?
     
     out.vertexID = vertexID;
     

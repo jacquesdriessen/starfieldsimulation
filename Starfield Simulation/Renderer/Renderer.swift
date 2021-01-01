@@ -424,11 +424,22 @@ class Renderer {
         
         let cameraMatrix = arEnabled ? frame.camera.viewMatrix(for: .landscapeRight) : matrix_identity_float4x4
         let myScaleMatrix = scaleMatrix(scale: 1/_renderScale)
-        let viewMatrix = trackingMatrix * cameraMatrix * myScaleMatrix
+        let viewMatrix = cameraMatrix * trackingMatrix * myScaleMatrix
         let projectionMatrix = frame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
             
         uniforms.pointee.viewMatrix = viewMatrix
         uniforms.pointee.sharedMatrix = projectionMatrix * viewMatrix
+        
+        //let myvector = vector_float4(0,0,0,1)
+        //let myvector2 = vector_float4(1,1,0,1)
+        //let myvector3 = vector_float4(0,0,-1,1)
+        //let myvector4 = vector_float4(1,1,-1,1)
+
+        //print (projectionMatrix * myvector)
+        //print (projectionMatrix * myvector2)
+        //print (projectionMatrix * myvector3)
+        //print (projectionMatrix * myvector4)
+
         
      //     uniforms.pointee.viewMatrix = frame.camera.viewMatrix(for: .landscapeRight)
        //     * scaleMatrix(scale: 1/_renderScale)

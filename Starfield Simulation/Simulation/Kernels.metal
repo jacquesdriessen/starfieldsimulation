@@ -162,8 +162,8 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
         currentPosition.xyz *= params.squeeze; // squeeze space.
         
         // tracking
-        currentVelocity.xyz -= tracking.velocity.xyz;
-        currentPosition.xyz -= tracking.position.xyz;
+        //currentVelocity.xyz -= tracking.velocity.xyz;
+        //currentPosition.xyz -= tracking.position.xyz;
         
         newPosition[threadGlobal] = currentPosition;
         newVelocity[threadGlobal] = currentVelocity;

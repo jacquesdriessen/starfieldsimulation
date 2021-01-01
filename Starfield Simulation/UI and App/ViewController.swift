@@ -407,7 +407,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
-            let centerMatrix = translationMatrix(translation:vector_float4(0,0,-0.05,1)) // so we can do the rotation "where we can see it", not too much otherwise looks weird
+            let centerMatrix = cameraMatrix()
             
             trackingMatrix = centerMatrix * rotationMatrix(rotation: vector_float3(0, -Float(velocity(gestureRecognizer.view!.superview!).x)/32768,-Float(velocity(gestureRecognizer.view!.superview!).y)/32768)) * centerMatrix.inverse * trackingMatrix
         }
@@ -424,9 +424,10 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
-            
             let velocity = Float(gestureRecognizer.velocity)
-            trackingMatrix = translationMatrix(translation:vector_float4(0,0,velocity/16,1)) * trackingMatrix
+            let centerMatrix = cameraMatrix()
+
+            trackingMatrix = centerMatrix * translationMatrix(translation:vector_float4(0,0,velocity/16,1)) * centerMatrix.inverse * trackingMatrix
         }
         
         return true
@@ -442,8 +443,8 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
-            let centerMatrix = translationMatrix(translation:vector_float4(0,0,-0.05,1)) // so we can do the rotation "where we can see it", not too much otherwise looks weird
-            
+            let centerMatrix = cameraMatrix()
+
             trackingMatrix = centerMatrix * rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * centerMatrix.inverse * trackingMatrix
         }
         
