@@ -46,7 +46,7 @@ class Renderer {
     var renderDestination: RenderDestinationProvider
     
     // Metal objects
-    var commandQueue: MTLCommandQueue!
+//    var commandQueue: MTLCommandQueue!
     var sharedUniformBuffer: MTLBuffer!
     var anchorUniformBuffer: MTLBuffer!
     var imagePlaneVertexBuffer: MTLBuffer!
@@ -356,7 +356,7 @@ class Renderer {
         interactiveDepthStateDescriptor.isDepthWriteEnabled = false
         interactiveDepthState = device.makeDepthStencilState(descriptor: interactiveDepthStateDescriptor)
         
-        commandQueue = device.makeCommandQueue()
+//        commandQueue = device.makeCommandQueue()
         
         _interpolation = device.makeBuffer(length: MemoryLayout<Float>.size, options: .storageModeShared)
     }
@@ -420,7 +420,7 @@ class Renderer {
         let uniforms = sharedUniformBufferAddress.assumingMemoryBound(to: SharedUniforms.self)
         
         let cameraMatrix = arEnabled ? frame.camera.viewMatrix(for: .landscapeRight) : matrix_identity_float4x4
-        let myScaleMatrix = scaleMatrix(scale: 1/_renderScale) // remove or at least understand.
+        let myScaleMatrix = scaleMatrix(scale: 1/_renderScale) // remove or rat least understand.
         let viewMatrix = cameraMatrix * trackingMatrix * myScaleMatrix
         let projectionMatrix = frame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
             

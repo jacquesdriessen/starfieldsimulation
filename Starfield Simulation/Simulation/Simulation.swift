@@ -36,7 +36,6 @@ class StarSimulation : NSObject {
     let blockSemaphore = DispatchSemaphore(value: 1) // don't have overlapping block calculations
 
     var _device: MTLDevice!
-    var _commandQueue: MTLCommandQueue!
     var _computePipeline : MTLComputePipelineState!
     var galaxyPipeline: MTLComputePipelineState!
     let models: Int = 10
@@ -50,7 +49,10 @@ class StarSimulation : NSObject {
     
     var _dispatchExecutionSize: MTLSize!
     var _threadsperThreadgroup: MTLSize!
-    var _threadgroupMemoryLength: Int = 0
+    var _threadgroupMemoryLength: Int = 0 // used for both - not right but since they are the same it works
+    
+    var threadsPerThreadgroupGalaxyCreation: MTLSize!
+    var dispatchExecutionSizeGalaxyCreation: MTLSize!
     
     var _oldestBufferIndex: Int = 0
     var _oldBufferIndex: Int = 0
@@ -114,6 +116,10 @@ class StarSimulation : NSObject {
         _dispatchExecutionSize = MTLSizeMake((Int(min(block_size, _config.numBodies)) + _computePipeline.threadExecutionWidth - 1) / _computePipeline.threadExecutionWidth, 1, 1)
         _threadgroupMemoryLength = _computePipeline.threadExecutionWidth * MemoryLayout<vector_float4>.size
         
+        threadsPerThreadgroupGalaxyCreation = MTLSizeMake(galaxyPipeline.threadExecutionWidth, 1, 1)
+        dispatchExecutionSizeGalaxyCreation = MTLSizeMake(galaxyPipeline.threadExecutionWidth, 1, 1) // just want "one go".
+        
+        //print(threadsPerThreadgroupGalaxyCreation, dispatchExecutionSizeGalaxyCreation);
         
         let bufferSize = MemoryLayout<vector_float3>.size * Int( ( ( UInt32(_config.numBodies) + block_size) / block_size) * block_size) // as integer math, this should give us a buffer that holds either the exact numBodies (in case that's a multiple of block_size), or numBodies + block_size (in case it's not). Required as otherwise the GPU will try to access memory > buffer.
      
@@ -198,8 +204,10 @@ class StarSimulation : NSObject {
             positions[random_index] = position
             positions[random_index].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15, note I doubt the randomness of random, not completely monotone, but if we first "make a galaxy", then do this, the old index + the this is really correlated
             
-            print("func addParticles:position[index]", random_index, positions[random_index])
-            
+            /*
+            if (testMode) {
+                print("func addParticles:position[index]", random_index, positions[random_index])
+            } */
             velocities[random_index] = vector_float4(0, 0, 0, 0)
             
             
@@ -253,8 +261,15 @@ class StarSimulation : NSObject {
         partitions += 1 // increase partitions.
         pass = 0 // start at pass one again
 
+        // If blocks to large, can cause a GPU timeout, e.g. split in blocks of max 65536, this technically should be moved into the only add particles bit, but what are the odds :-).
+        
 
-        makegalaxyonlyaddparticles(first: first, last: last, positionOffset: positionOffset, velocityOffset: velocityOffset, axis: axis, flatten: flatten, prescale: prescale, vrescale: vrescale, vrandomness: vrandomness, squeeze: squeeze, collision_enabled: collision_enabled)
+        
+        let block_size = 65536
+        
+        for i in 0...((last-first)/block_size) {
+            makegalaxyonlyaddparticles(first: first + i * block_size, last: min(first + (i+1) * block_size - 1,last), positionOffset: positionOffset, velocityOffset: velocityOffset, axis: axis, flatten: flatten, prescale: prescale, vrescale: vrescale, vrandomness: vrandomness, squeeze: squeeze, collision_enabled: collision_enabled)
+        }
     }
         
 
@@ -283,11 +298,12 @@ class StarSimulation : NSObject {
 
         let useGPU : Bool = true
         
+ 
         if useGPU {
             var randomSeed : UInt = UInt.random(in: 0...100000000000)
             
-            if _commandQueue != nil {
-                let commandBuffer = _commandQueue.makeCommandBuffer()!
+            if commandQueue != nil {
+                let commandBuffer = commandQueue.makeCommandBuffer()!
                 
                 commandBuffer.pushDebugGroup("Galaxy Creation")
 
@@ -302,7 +318,7 @@ class StarSimulation : NSObject {
                 var _squeeze = squeeze
             
                 let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
-                computeEncoder.setComputePipelineState(_computePipeline)
+                computeEncoder.setComputePipelineState(galaxyPipeline)
                 computeEncoder.setBuffer(_positions[0], offset: 0, index: 0)
                 computeEncoder.setBuffer(_velocities[0], offset: 0, index: 1)
                 computeEncoder.setBuffer(_positions[1], offset: 0, index: 2)
@@ -323,22 +339,18 @@ class StarSimulation : NSObject {
                 computeEncoder.setBytes(&_squeeze, length: MemoryLayout<Float>.size, index: 17)
                 computeEncoder.setBytes(&randomSeed, length: MemoryLayout<UInt>.size, index: 18)
 
-                computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0)
-                computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
+                computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // assume this is the threadgroup memory we use for stuff, need to better understand.
+                computeEncoder.dispatchThreadgroups(dispatchExecutionSizeGalaxyCreation, threadsPerThreadgroup: threadsPerThreadgroupGalaxyCreation)
                 
                 computeEncoder.endEncoding()
 
-                commandBuffer.waitUntilCompleted()
                 commandBuffer.commit()
+                commandBuffer.waitUntilCompleted()
                 commandBuffer.popDebugGroup()
             }
+        } else {
             for i in first...last {
-                print(i, positions[i], velocities[i])
-            }
-        } else
-        {
-            for i in first...last {
-                if i == first { // reserve first particle to be able to interact with things.
+                if i == first { // reserve first particle to be able to interact with things. // no longer used, we do this separately in the kernel I guess!!!!
                     positions[i] = vector_float4(0,0,0,0)
                     positions[i].w = 0
                     velocities[i] = vector_float4(0,0,0,0)
@@ -382,7 +394,7 @@ class StarSimulation : NSObject {
                     
                     let nposition = position / sqrt(position.x * position.x + position.y * position.y + position.z * position.z) // used normalized positions for speed, as speed is approximately independent on distance from center.
                     
-                    velocity = vector_float4(cross_product(a: nposition, b: main_axis),0)
+                    velocity = vector_float4(self.cross_product(a: nposition, b: main_axis),0)
 
                     velocity = velocity * (vector_float4(1,1,1,0) + vrandomness * vector_float4(generate_random_normalized_vector(), 0)) // add some randomness here
                     
@@ -415,9 +427,9 @@ class StarSimulation : NSObject {
                 velocities2[i] = velocities[i]
                 velocities3[i] = velocities[i]
                 
-                if testMode {
+                /*if testMode {
                     print("func makegalaxyonlyaddparticles: position", positions[i])
-                }
+                }*/
             }
         }
     }

@@ -12,11 +12,10 @@ import ARKit
 // get some global variables as otherwise we just passing things around
 var partitions = 1
 var trackingMatrix = matrix_identity_float4x4
-let arEnabled: Bool = true
-let testMode: Bool = true //to be able to freeze time / small amount particles
+let arEnabled: Bool = false
+let testMode: Bool = false //to be able to freeze time / small amount particles
 var viewportSize: CGSize = CGSize() // The current viewport size
-var _commandQueue: MTLCommandQueue!
-
+var commandQueue: MTLCommandQueue!
 
 @IBDesignable class MyButton: UIButton
 {
@@ -90,8 +89,6 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
     var _simulationTime: CFAbsoluteTime!
     
     var _computeDevice: MTLDevice!
-    
-    var _commandQueue: MTLCommandQueue!
     
     var _config: SimulationConfig!
     
@@ -299,10 +296,11 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         renderer.drawRectResized(size: _view.bounds.size)
         
         print("Starting Simulation")
-        
+
+        commandQueue = renderer.device.makeCommandQueue()
+
         _simulation = StarSimulation.init(computeDevice: _computeDevice, config: _config)
 
-        _commandQueue = renderer.device.makeCommandQueue()
     }
     
     /*
@@ -633,8 +631,8 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
             renderer.draw(positionsBuffer1: _simulation.getStablePositionBuffer1(), positionsBuffer2: _simulation.getStablePositionBuffer2(), interpolation: _simulation.getInterpolation(), numBodies: Int(_config.numBodies), inView: _view, finger: fingerWorldCoordinates)
         }
         
-        if _commandQueue != nil {
-            let commandBuffer = _commandQueue.makeCommandBuffer()!
+        if commandQueue != nil {
+            let commandBuffer = commandQueue.makeCommandBuffer()!
             
             commandBuffer.pushDebugGroup("Controller Frame")
             

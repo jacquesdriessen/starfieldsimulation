@@ -173,30 +173,33 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
 
 
 // Generate a random float in the range [0.0f, 1.0f] using x, y, and z (based on the xor128 algorithm)
-float random(uint x, uint y, uint z)
+float random(thread int3 &seed)
 {
-    int seed = x + y * 57 + z * 241;
-    seed= (seed<< 13) ^ seed;
-    return (( 1.0 - ( (seed * (seed * seed * 15731 + 789221) + 1376312589) & 2147483647) / 1073741824.0f) + 1.0f) / 2.0f;
+    int local_seed = seed.x + seed.y * 57 + seed.z * 241;
+    local_seed = (local_seed<< 13) ^ local_seed;
+    
+    seed.x += 1;
+    
+    return (( 1.0 - ( (local_seed * (local_seed * local_seed * 15731 + 789221) + 1376312589) & 2147483647) / 1073741824.0f) + 1.0f) / 2.0f;
 }
 
-float random(float minimum, float maximum, uint x, uint y, uint z)
+float random(float minimum, float maximum, thread int3 &seed)
 {
-    return minimum + random(x, y, z) * (maximum - minimum);
+    return minimum + random(seed) * (maximum - minimum);
 }
 
-float3 random_vector (float minimum, float maximum, uint x, uint y, uint z)
+float3 random_vector (float minimum, float maximum, thread int3 &seed)
 {
-    float r = random(minimum, maximum, z, y, y);
-    float theta = random(x,z,y) * M_PI_F;
-    float phi = random(y,x,z) * M_2_PI_F;
+    float r = random(minimum, maximum, seed);
+    float theta = random(0, M_PI_F, seed);
+    float phi = random(0, 2*M_PI_F, seed);
     
     return float3(r * sin(theta) * cos(phi), r * sin(theta) * sin(phi), r * cos(theta));
 }
 
-float3 random_normalized_vector (int x, int y, int z)
+float3 random_normalized_vector (thread int3 &seed)
 {
-    return random_vector(1, 1, x, y, z);
+    return random_vector(1, 1, seed);
 }
 
 kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
@@ -248,17 +251,14 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
         float4 position = float4(0,0,0,1); // last = 1 so it's matrix transformable
         float4 velocity = float4(0,0,0,1);
 
-        // random, i, thread & maybe something else passed on,
-        uint seed1 = randomSeed;
-        uint seed2 = i;
-        uint seed3 = 512 + threadInGroup;
+        int3 seed = int3(randomSeed, i, threadInGroup);
         
-        float3 nrpos = random_normalized_vector(seed1, seed2, seed3);
-        float3 rpos = abs(random_normalized_vector(seed3,seed2, seed1));
+        float3 nrpos = random_normalized_vector(seed);
+        float3 rpos = abs(random_normalized_vector(seed));
         
         position.xyz = nrpos * (inner + ((outer-inner) * rpos));
-        float mass = random(1, 2.15, seed2, seed1, seed3);
-        totalMass[threadInGroup] += mass;
+        float radius = 1 / random(0.465, 1, seed); //random(1, 2.15, seed);
+        totalMass[threadInGroup] += radius * radius * radius /* power of three */;
 
         float3 my_axis = main_axis;
         float scalar = dot(nrpos, my_axis);
@@ -274,9 +274,9 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
         
         velocity.xyz = cross(normalize(position.xyz), my_axis);
         
-        velocity.xyz += vrandomness * dot(velocity.xyz, random(seed3, seed1, seed2));
+        velocity.xyz += vrandomness * dot(velocity.xyz, random(seed));
         
-        velocity *= vscale;
+        velocity.xyz *= vscale;
         
         velocity.x *= squeeze;
         velocity.y *= inverseSqueeze;
@@ -286,10 +286,33 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
             position.y *= inverseSqueeze;
         }
         
+        //position.xyz = pscale * random_normalized_vector(seed);
+
+        /*
+        // simple "round" galaxy, for testing, maybe should have "types".
+        position.x = random(-1.0f, 1.0f, seed);
+        position.y = random(-1.0f, 1.0f, seed);
+        position.z = random(-1.0f, 1.0f, seed);
+        position.xyz = pscale * normalize(position.xyz);
+        velocity = 0;
+        */
+
+        /*
+        // simple "round" galaxy, created another way, all on the outside V2, for testing, maybe should have "types".
+        position.xyz = random_vector(pscale, pscale, seed);
+        velocity = 0;
+        */
+        /*
+        // last test, should also create the same
+        position.xyz = pscale * random_normalized_vector(seed);
+        velocity = 0;
+        */
+
         position = positionTransform * position;
         velocity = velocityTransform * velocity;
         
-        position.w = mass; // waited until here because otherwise this would affect our transformation.
+        position.w = radius; // waited until here because otherwise this would affect our transformation.
+        
         
         // copy results to all three buffers
         position1[i] = position;
@@ -301,7 +324,29 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
         velocity3[i] = velocity;
 
     }
+    
+    // @this point each thread has the total mass in totalMass[threadInGroup], as thread zero will always have the longest runtime, have that thread calculate the total mass
+    if (threadInGroup == 0) {
+        float blackHoleMass = 0;
+        for (uint i = 0; i < numThreadsInGroup; i++)
+            blackHoleMass += totalMass[i];
+        
+        // create black Hole
+        position1[first].xyz = 0;
+        position1[first].w = pow (0.0025 * 65000, 0.33333333); // 3d root of 1/400 of the total mass.
+        velocity1[first].xyz = 0;
+        
+        //copy to the other buffers;
+        position2[first] = position1[first];
+        position3[first] = position1[first];
+        
+        velocity2[first] = velocity1[first];
+        velocity3[first] = velocity1[first];
+
+    }
+    
     // how do we calculate the real total mass, + we need to deal with the black hole stuff outside of this I would say, unless there is a smart way! fencing I believe.
+    
     return;
 }
 
