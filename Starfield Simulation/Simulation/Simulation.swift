@@ -187,14 +187,21 @@ class StarSimulation : NSObject {
                 random_index = Int.random(in: 0...Int(_config.numBodies)) // otherwise writing destroys galaxies instead of other way around (due to the partition hack)
             }
             positions[random_index] = position
-            positions[random_index].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
+            positions[random_index].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15, note I doubt the randomness of random, not completely monotone, but if we first "make a galaxy", then do this, the old index + the this is really correlated
+            
+            print("func addParticles:position[index]", random_index, positions[random_index])
+            
             velocities[random_index] = vector_float4(0, 0, 0, 0)
+            
+            
             
             // in case we are "on halt", we still want it to display, e.g. copy to all buffers
             positions2[random_index] = positions[random_index]
             positions3[random_index] = positions[random_index]
             velocities2[random_index] = velocities[random_index]
             velocities3[random_index] = velocities[random_index]
+            
+
         }
     }
     
@@ -341,6 +348,10 @@ class StarSimulation : NSObject {
             positions3[i] = positions[i]
             velocities2[i] = velocities[i]
             velocities3[i] = velocities[i]
+            
+            if testMode {
+                print("func makegalaxyonlyaddparticles: position", positions[i])
+            }
         }
     }
     
@@ -396,7 +407,21 @@ class StarSimulation : NSObject {
         // when adding things, make sure we update "models" in the var declarion, which holds the total number, e.g. the last (as we start from 0) = models-1
         switch model {
         case 0: // one flat galaxy
-            makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.05, squeeze: 2)
+            if (!testMode) {
+                makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.05, squeeze: 2)
+            } else {
+                let onefourth = Int(_config.numBodies)/4
+                let scale : Float = 0.25
+                let depth : Float = -1
+                // for whatever reason, need to first create galaxy, then do this, I think it's the "parameters".
+                makegalaxy(first:0, last: Int(_config.numBodies) - 1, squeeze: 2)
+                addParticles(first: 0, last: onefourth-1, finger:vector_float4(-scale,-scale,depth,1)) // this doesn really work at first, as wrong origin
+                addParticles(first: onefourth, last: 2*onefourth-1, finger:vector_float4(-scale,scale,depth,1))
+                addParticles(first: 2*onefourth, last: 3*onefourth-1, finger:vector_float4(
+                                scale,scale,depth,1))
+                addParticles(first: 3*onefourth, last: 4*onefourth-1, finger:vector_float4(scale,-scale,depth,1))
+                addParticles(first: 0, last: onefourth-1, finger:vector_float4(-scale,-scale,depth,1)) // now this will work.
+            }
         case 1: // one round odd galaxy
             makegalaxy(first:0, last: Int(_config.numBodies) - 1, squeeze: 2)
         case 2: // small & big galaxy

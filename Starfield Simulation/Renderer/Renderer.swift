@@ -84,9 +84,6 @@ class Renderer {
     // Addresses to write shared uniforms to each frame
     var sharedUniformBufferAddress: UnsafeMutableRawPointer!
 
-    // The current viewport size
-    var viewportSize: CGSize = CGSize()
-    
     // Flag for viewport size changes
     var viewportSizeDidChange: Bool = false
     
@@ -423,7 +420,7 @@ class Renderer {
         let uniforms = sharedUniformBufferAddress.assumingMemoryBound(to: SharedUniforms.self)
         
         let cameraMatrix = arEnabled ? frame.camera.viewMatrix(for: .landscapeRight) : matrix_identity_float4x4
-        let myScaleMatrix = scaleMatrix(scale: 1/_renderScale)
+        let myScaleMatrix = scaleMatrix(scale: 1/_renderScale) // remove or at least understand.
         let viewMatrix = cameraMatrix * trackingMatrix * myScaleMatrix
         let projectionMatrix = frame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
             

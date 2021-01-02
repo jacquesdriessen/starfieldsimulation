@@ -12,8 +12,9 @@ import ARKit
 // get some global variables as otherwise we just passing things around
 var partitions = 1
 var trackingMatrix = matrix_identity_float4x4
-let arEnabled: Bool = false
+let arEnabled: Bool = true
 let testMode: Bool = true //to be able to freeze time / small amount particles
+var viewportSize: CGSize = CGSize() // The current viewport size
 
 @IBDesignable class MyButton: UIButton
 {
@@ -283,7 +284,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 262144, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 1/16*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // can go up this high because of the hack, but takes a long time to "load" a galaxy, maybe something we can do (copying could be done on the GPU?)
         } else {
         // test mode, just a few particles, time frozen.
-        _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 1024, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 0, simDuration: 100 /* dont think thtis was implemented */) // can go up this high because of the hack, but takes a long time to "load" a galaxy, maybe something we can do (copying could be done on the GPU?)
+        _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 8192, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 0, simDuration: 100 /* dont think thtis was implemented */) // can go up this high because of the hack, but takes a long time to "load" a galaxy, maybe something we can do (copying could be done on the GPU?)
         }
         
         // Configure the renderer to draw to the view
@@ -414,9 +415,8 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
-            let centerMatrix = arEnabled ? cameraMatrix() : matrix_identity_float4x4
-            
-            trackingMatrix = centerMatrix * rotationMatrix(rotation: vector_float3(0, -Float(velocity(gestureRecognizer.view!.superview!).x)/32768,-Float(velocity(gestureRecognizer.view!.superview!).y)/32768)) * centerMatrix.inverse * trackingMatrix
+
+            trackingMatrix = cameraMatrix().inverse * rotationMatrix(rotation: vector_float3(0, -Float(velocity(gestureRecognizer.view!.superview!).x)/32768,-Float(velocity(gestureRecognizer.view!.superview!).y)/32768)) * cameraMatrix() * trackingMatrix
         }
         
         return true
@@ -432,9 +432,8 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = Float(gestureRecognizer.velocity)
-            let centerMatrix = arEnabled ? cameraMatrix() : matrix_identity_float4x4
 
-            trackingMatrix = centerMatrix * translationMatrix(translation:vector_float4(0,0,velocity/16,1)) * centerMatrix.inverse * trackingMatrix
+            trackingMatrix = cameraMatrix().inverse * translationMatrix(translation:vector_float4(0,0,velocity/16,1)) * cameraMatrix() * trackingMatrix
         }
         
         return true
@@ -450,9 +449,8 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
-            let centerMatrix = arEnabled ? cameraMatrix() : matrix_identity_float4x4
 
-            trackingMatrix = centerMatrix * rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * centerMatrix.inverse * trackingMatrix
+            trackingMatrix = cameraMatrix().inverse * rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * cameraMatrix() * trackingMatrix
         }
         
         return true
@@ -473,7 +471,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
             return matrix_identity_float4x4
         }
 
-        let camera = currentFrame.camera.transform
+        let camera = (arEnabled ? currentFrame.camera.viewMatrix(for: .landscapeRight) : matrix_identity_float4x4)
 
         return camera
     }
@@ -483,20 +481,69 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
             return matrix_identity_float4x4
         }
         
-        let projection = currentFrame.camera.projectionMatrix
+        let projection = currentFrame.camera.projectionMatrix(for: .landscapeRight, viewportSize: viewportSize, zNear: 0.001, zFar: 1000)
         
         return projection
     }
+   
     
-    func screenCoordinatesToNormalCoordinates(screenCoordinates: CGPoint) -> vector_float2 {
+    func viewportMatrix() -> float4x4 {
+        // https://vitaminac.github.io/Matrices-in-Computer-Graphics/#Viewport-Transformation-Matrix
+        let l: Float = 0 // depends on landscaperight etc., figure that out, there should be something for this really.
+        let r: Float = Float(viewportSize.width)
+        let t: Float = 0
+        let b: Float = Float(viewportSize.height)
+        
+        let col0 = SIMD4<Float>((r-l)/2.0,    0,          0,      0)
+        let col1 = SIMD4<Float>(0,            (t-b)/2.0,  0,      0)
+        let col2 = SIMD4<Float>(0,            0,          0.5,    0)
+        let col3 = SIMD4<Float>((r+l)/2.0,    (t+b)/2,    0.5,    1)
+        
+        return float4x4(col0, col1, col2, col3)
+    }
 
+    func screenCoordinatesToNormalCoordinates(screenCoordinates: CGPoint) -> vector_float2 {
+/*
         let x : Float = 1  * ( 2 * Float(screenCoordinates.x) / Float(view.frame.size.width) - 1) // 0.001 is that scaling factor
         let y : Float = -1 * ( 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1) // for whatever reason this is upside down. I think because top left = 0,0 / top bottom = 1 1 in "texture space".
 
-        return vector_float2(0.75 * x, y) // need to figure out why this is, seems like aspect ratio, how do we find out????
+        return vector_float2(0.75 * x, y) // need to figure out why this is, seems like aspect ratio, how do we find out???? */
+        
+        let centered_x : Float = Float(screenCoordinates.x) - 0.5 * Float(view.frame.size.width)
+        let centered_y : Float = Float(screenCoordinates.y) - 0.5 * Float(view.frame.size.height)
+        let scaling_x : Float = 2.0 / Float(view.frame.size.width)
+        let scaling_y : Float = -2.0 / Float(view.frame.size.height)
+        let x: Float = centered_x * scaling_x
+        let y: Float = centered_y * scaling_y
+        
+        return vector_float2(x, y)
     }
     
-    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 { // this is the world coordinates as "AR" sees them, leave out all the stuff for our trackingmatrix, needs to be handled last step.
+    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 {
+        let forward_transform = projectionMatrix() * (arEnabled ? cameraMatrix() : matrix_identity_float4x4)                  // transformation (<- direction) device3D  <- world
+        let inverse_transform = (arEnabled ? cameraMatrix().inverse : matrix_identity_float4x4) * projectionMatrix().inverse     // transformation (<- direction) world     <- device3D
+        
+        var device_origin_as_viewed_from_camera : vector_float4 = (arEnabled ? cameraMatrix() : matrix_identity_float4x4).columns.3 // how the camera sees it.
+        //device_origin_as_viewed_from_camera.x = device_origin_as_viewed_from_camera.x + 1
+        let device_origin_world = (arEnabled ? cameraMatrix() : matrix_identity_float4x4) * device_origin_as_viewed_from_camera // world coordinates, as the device sees it.
+        let device_origin = projectionMatrix() * device_origin_world
+
+        
+        let pointCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates:screenCoordinates)
+        let point = vector_float4(pointCoordinates.x, pointCoordinates.y, device_origin.z, device_origin.w)
+        let point_world = projectionMatrix().inverse * point
+        let point_world_as_viewed_from_camera = (arEnabled ? cameraMatrix() : matrix_identity_float4x4).inverse * point_world
+        
+       /* print("point", point)
+        print("point world", point_world)
+        print("point from camera", point_world_as_viewed_from_camera)
+*/
+        return point_world_as_viewed_from_camera
+        
+        /*
+         
+        
+        // this is the world coordinates as "AR" sees them, leave out all the stuff for our trackingmatrix, needs to be handled last step.
         // https://jsantell.com/3d-projection/ to learn about projections.
         // there should be a more straightforward way, but I think this makes sense to me.
 
@@ -513,7 +560,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         let deviceCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates:screenCoordinates)
         let deviceCoordinates_device3D = vector_float4(deviceCoordinates.x, deviceCoordinates.y, 0, 0) // This is 2D I know, but need to find away to deal with orientation!!
  //working more or less
-    /*    let point = inverse_transform * deviceMiddle_device3D + extractOrientationMatrix(fullmatrix: (arEnabled ? cameraMatrix().inverse : matrix_identity_float4x4)) * inverse_transform * deviceCoordinates_device3D; //  first part is to make sure we do everything compared to where the device, is second is the screen, but need to make sure we correct for the plane of the device (e.g. just the rotation of the camera.
+    ***    let point = inverse_transform * deviceMiddle_device3D + extractOrientationMatrix(fullmatrix: (arEnabled ? cameraMatrix().inverse : matrix_identity_float4x4)) * inverse_transform * deviceCoordinates_device3D; //  first part is to make sure we do everything compared to where the device, is second is the screen, but need to make sure we correct for the plane of the device (e.g. just the rotation of the camera.
     
            for (0,0,0) first, e.g. basically it's uncollapsed in a sense already.
            have our "device coordinates"s. (x/y plane), but missing y and w, only way to get that is ",
@@ -521,7 +568,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
          then translate & rotate back, however then would want this to be "collapsed & projected", so we have proper coordinates & then do all of the inverse transform. The last steps are cancelling out, so technically should be equivalent to just taking the 2D thing, and do the inverse of the camera.
          
          translationMatrix(translation: vector_float3(0,0,-0.05)) *
-         */
+         ***
         
         let point = (arEnabled ? cameraMatrix().inverse : matrix_identity_float4x4)
             * (deviceMiddle_device3D + 0.01*deviceCoordinates_device3D + vector_float4(0,0,-0.10,0)) // - deviceCoordinates_device3D +
@@ -532,7 +579,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         
         return point
-        
+        */
     }
 
     func setAlphaUI() {
