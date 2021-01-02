@@ -57,6 +57,10 @@ func translationMatrix(translation : vector_float3) -> float4x4 {
     return translationMatrix(translation: vector_float4(translation, 1))
 }
 
+func translationMatrix(from : vector_float4, to: vector_float4) -> float4x4 {
+    return translationMatrix(translation: vector_float4(to.x - from.x, to.y - from.y, to.z - from.y, 1))
+}
+
 
 func mirrorMatrix(x: Bool = false, y: Bool = false, z: Bool = false) -> float4x4 {
     var mirror_matrix = matrix_identity_float4x4

@@ -479,10 +479,21 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
         
+        /* idea - but need to think through
+        let finger = screenCoordinatesToWorldCoordinates(screenCoordinates: fingerScreenCoordinates)
+        let camera = cameraMatrix().columns.3
+
+        let offsetMatrix = translationMatrix(from: finger, to: camera)
+        */
+        /* another idea, better, but not it, think it through first I guess
+        let finger = cameraMatrix() * screenCoordinatesToWorldCoordinates(screenCoordinates: fingerScreenCoordinates)
+        let offsetMatrix = translationMatrix(translation: vector_float3(finger.x, finger.y, finger.z))
+         */
+        
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
 
-            trackingMatrix = cameraMatrix().inverse * rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * cameraMatrix() * trackingMatrix
+            trackingMatrix = cameraMatrix().inverse * /*offsetMatrix */  rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * /*offsetMatrix.inverse */ cameraMatrix() * trackingMatrix
 
             if stickyCamera {
                 trackingMatrix = cameraMatrix().inverse * fixCamera * trackingMatrix
