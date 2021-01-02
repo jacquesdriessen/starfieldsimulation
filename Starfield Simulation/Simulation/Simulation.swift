@@ -38,6 +38,7 @@ class StarSimulation : NSObject {
     var _device: MTLDevice!
     var _commandQueue: MTLCommandQueue!
     var _computePipeline : MTLComputePipelineState!
+    var galaxyPipeline: MTLComputePipelineState!
     let models: Int = 10
     var model: Int = 0
     
@@ -100,7 +101,15 @@ class StarSimulation : NSObject {
         } catch let error {
             print("Failed to create compute pipeline state, error \(error)")
         }
-       
+        let createGalaxy : MTLFunction = defaultLibrary.makeFunction(name: "createGalaxy")!
+        do {
+            try galaxyPipeline = _device.makeComputePipelineState(function: createGalaxy)
+        } catch let error {
+            print("Failed to create createGalaxy pipeline state, error \(error)")
+        }
+
+        
+        
         _threadsperThreadgroup = MTLSizeMake(_computePipeline.threadExecutionWidth, 1, 1)
         _dispatchExecutionSize = MTLSizeMake((Int(min(block_size, _config.numBodies)) + _computePipeline.threadExecutionWidth - 1) / _computePipeline.threadExecutionWidth, 1, 1)
         _threadgroupMemoryLength = _computePipeline.threadExecutionWidth * MemoryLayout<vector_float4>.size
@@ -113,7 +122,7 @@ class StarSimulation : NSObject {
             _positions.append(_device.makeBuffer(length: bufferSize, options: .storageModeShared)!)
             _velocities.append(_device.makeBuffer(length: bufferSize, options: .storageModeShared)!)
             _blocks.append(_device.makeBuffer(length: MemoryLayout<StarBlock>.size, options: .storageModeShared)!)
-            spectatorMovement.append(_device.makeBuffer(length: MemoryLayout<SpecatorMovement>.size, options: .storageModeShared)!)
+            spectatorMovement.append(_device.makeBuffer(length: MemoryLayout<SpecatorMovement>.size, options: .storageModeShared)!) // probably no longer needed
        
             _positions[i].label = "Positions" + String(i)
             _velocities[i].label = "Velocities" + String(i)
@@ -250,8 +259,8 @@ class StarSimulation : NSObject {
         
 
     func makegalaxyonlyaddparticles(first: Int, last: Int, positionOffset: vector_float3 = vector_float3(0,0,0), velocityOffset: vector_float3 = vector_float3(0,0,0), axis: vector_float3 = vector_float3(0,0,0), flatten: Float = 1, prescale : Float = 1, vrescale: Float = 1, vrandomness: Float = 0, squeeze: Float = 1, collision_enabled: Bool = false) {
-        let pscale : Float = _config.clusterScale * prescale
-        let vscale : Float = _config.velocityScale * pscale * vrescale
+        var pscale : Float = _config.clusterScale * prescale
+        var vscale : Float = _config.velocityScale * pscale * vrescale
         let inner : Float = 2.5 * pscale
         let outer : Float = 4.0 * pscale
         var total_mass: Float = 0
@@ -259,11 +268,12 @@ class StarSimulation : NSObject {
         let rightInFrontOfCamera = simd_mul(camera, translationMatrix(translation:vector_float3(0,0,-0.5))) //0.5 meters in front of the camera, so we can see it!
         let rotation_matrix = rotationMatrix(rotation: axis)
 
-        let position_transformation = rightInFrontOfCamera * translationMatrix(translation: positionOffset) * rotation_matrix
-        let velocity_transformation = rightInFrontOfCamera * translationMatrix(translation: velocityOffset * _config.clusterScale * _config.velocityScale) * rotation_matrix
+        var position_transformation = rightInFrontOfCamera * translationMatrix(translation: positionOffset) * rotation_matrix
+        var velocity_transformation = rightInFrontOfCamera * translationMatrix(translation: velocityOffset * _config.clusterScale * _config.velocityScale) * rotation_matrix
         
         split = UInt32(first) // split will always be right before the "last galaxy".
         
+        // once the GPU code works, move this to the CPU code, but want to be able to "probe" during debugging.
         let positions = _positions[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities = _velocities[_oldBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let positions2 = _positions[_oldestBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
@@ -271,86 +281,143 @@ class StarSimulation : NSObject {
         let positions3 = _positions[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
         let velocities3 = _velocities[_newBufferIndex].contents().assumingMemoryBound(to: vector_float4.self)
 
-        for i in first...last {
-            if i == first { // reserve first particle to be able to interact with things.
-                positions[i] = vector_float4(0,0,0,0)
-                positions[i].w = 0
-                velocities[i] = vector_float4(0,0,0,0)
+        let useGPU : Bool = true
+        
+        if useGPU {
+            var randomSeed : UInt = UInt.random(in: 0...100000000000)
+            
+            if _commandQueue != nil {
+                let commandBuffer = _commandQueue.makeCommandBuffer()!
+                
+                commandBuffer.pushDebugGroup("Galaxy Creation")
+
+                // otherwise we cannot pass them to the shader, I think because it has free access to all memory
+                var _first = first
+                var _last = last
+                var _axis = axis
+                var _flatten = flatten
+                var _prescale = prescale
+                var _vrescale = vrescale
+                var _vrandomness  = vrandomness
+                var _squeeze = squeeze
+            
+                let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
+                computeEncoder.setComputePipelineState(_computePipeline)
+                computeEncoder.setBuffer(_positions[0], offset: 0, index: 0)
+                computeEncoder.setBuffer(_velocities[0], offset: 0, index: 1)
+                computeEncoder.setBuffer(_positions[1], offset: 0, index: 2)
+                computeEncoder.setBuffer(_velocities[1], offset: 0, index: 3)
+                computeEncoder.setBuffer(_positions[2], offset: 0, index: 4)
+                computeEncoder.setBuffer(_velocities[2], offset: 0, index: 5)
+                computeEncoder.setBytes(&_config.clusterScale, length: MemoryLayout<Float>.size, index: 6)
+                computeEncoder.setBytes(&_config.velocityScale, length: MemoryLayout<Float>.size, index: 7)
+                computeEncoder.setBytes(&_first, length: MemoryLayout<UInt>.size, index: 8)
+                computeEncoder.setBytes(&_last, length: MemoryLayout<UInt>.size, index: 9)
+                computeEncoder.setBytes(&position_transformation, length: MemoryLayout<float4x4>.size, index: 10)
+                computeEncoder.setBytes(&velocity_transformation, length: MemoryLayout<float4x4>.size, index: 11)
+                computeEncoder.setBytes(&_axis, length: MemoryLayout<SIMD4<Float>>.size, index: 12)
+                computeEncoder.setBytes(&_flatten, length: MemoryLayout<Float>.size, index: 13)
+                computeEncoder.setBytes(&_prescale, length: MemoryLayout<Float>.size, index: 14)
+                computeEncoder.setBytes(&_vrescale, length: MemoryLayout<Float>.size, index: 15)
+                computeEncoder.setBytes(&_vrandomness, length: MemoryLayout<Float>.size, index: 16)
+                computeEncoder.setBytes(&_squeeze, length: MemoryLayout<Float>.size, index: 17)
+                computeEncoder.setBytes(&randomSeed, length: MemoryLayout<UInt>.size, index: 18)
+
+                computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0)
+                computeEncoder.dispatchThreadgroups(_dispatchExecutionSize, threadsPerThreadgroup: _threadsperThreadgroup)
+                
+                computeEncoder.endEncoding()
+
+                commandBuffer.waitUntilCompleted()
+                commandBuffer.commit()
+                commandBuffer.popDebugGroup()
             }
-            else if i == last { // last particle is stationary supermassive black hole in the middle.
-                positions[i] = vector_float4(0,0,0,0)
-                positions[i].w = pow ((1/400) * total_mass, 1/3) // black hole is approximately 1/400 of the total mass, radius is cube root.
-                velocities[i] = vector_float4(0,0,0,0)
-
-            } else {
-
-                let nrpos = generate_random_normalized_vector()
-                //let position = nrpos * abs(generate_random_vector(min:inner, max: outer)) // alternate
-                let rpos = abs(generate_random_normalized_vector())
-                let position = nrpos * (inner + ((outer-inner) * rpos));
-                
-                positions[i].x = position.x
-                positions[i].y = position.y
-                positions[i].z = position.z
-                positions[i].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
-                //positions[Int(i)].w = 1 // star size, Mass is this "to the power of three" - model with all equal mass.
-                total_mass += positions[Int(i)].w + positions[Int(i)].w + positions[Int(i)].w
-                
-                var main_axis = vector_float3 (0.0, 0.0, 1.0)
-                
-                let scalar = nrpos.x * main_axis.x + nrpos.y * main_axis.y + nrpos.z * main_axis.z
-                
-                if ((1 - scalar) < 0.000001) { // not entirely sure what this is for.
-                    main_axis.x = nrpos.y
-                    main_axis.y = nrpos.x
-                    
-                    let axis_sq = main_axis.x*main_axis.x + main_axis.y*main_axis.y + main_axis.z * main_axis.z
-                    
-                    main_axis = main_axis / axis_sq.squareRoot()
-                }
-
-                var velocity = vector_float4(0,0,0,0)
-
-                // flatten
-                positions[i].z *= flatten // flatten galaxiy.
-                
-                let nposition = position / sqrt(position.x * position.x + position.y * position.y + position.z * position.z) // used normalized positions for speed, as speed is approximately independent on distance from center.
-                
-                velocity = vector_float4(cross_product(a: nposition, b: main_axis),0)
-
-                velocity = velocity * (vector_float4(1,1,1,0) + vrandomness * vector_float4(generate_random_normalized_vector(), 0)) // add some randomness here
-                
-
-                velocities[i] = velocity * vscale
-                
-                // squeeze fakes our way into a spiral galaxy, adjust velocities + create a bar.
-                velocities[i].x /= squeeze
-                velocities[i].y *= squeeze
-
-                if ((1 - scalar) < 0.5) {
-                    // squeeze - create a bar in the middle to make for a better start.
-                    positions[i].y /= squeeze
-                }
+            for i in first...last {
+                print(i, positions[i], velocities[i])
             }
- 
-            
-            // apply the rotation & translation + go to camera coordinates.
-            let temp_radius = positions[i].w // save this value - as we use this for something else.
-            positions[i].w = 1 // if we don't do this, would mess up the transformation
-            velocities[i].w = 1 // otherwise this wouldn't work either.
-            positions[i] = position_transformation * positions[i]
-            velocities[i] = velocity_transformation * velocities[i]
-            positions[i].w = temp_radius // restores .w
-            
-            // in case we are "on halt", we still want it to display, e.g. copy to all buffers - maybe this should be on the GPU.
-            
-            positions2[i] = positions[i]
-            positions3[i] = positions[i]
-            velocities2[i] = velocities[i]
-            velocities3[i] = velocities[i]
-            
-            if testMode {
-                print("func makegalaxyonlyaddparticles: position", positions[i])
+        } else
+        {
+            for i in first...last {
+                if i == first { // reserve first particle to be able to interact with things.
+                    positions[i] = vector_float4(0,0,0,0)
+                    positions[i].w = 0
+                    velocities[i] = vector_float4(0,0,0,0)
+                }
+                else if i == last { // last particle is stationary supermassive black hole in the middle.
+                    positions[i] = vector_float4(0,0,0,0)
+                    positions[i].w = pow ((1/400) * total_mass, 1/3) // black hole is approximately 1/400 of the total mass, radius is cube root.
+                    velocities[i] = vector_float4(0,0,0,0)
+
+                } else {
+
+                    let nrpos = generate_random_normalized_vector()
+                    //let position = nrpos * abs(generate_random_vector(min:inner, max: outer)) // alternate
+                    let rpos = abs(generate_random_normalized_vector())
+                    let position = nrpos * (inner + ((outer-inner) * rpos))
+                    
+                    positions[i].x = position.x
+                    positions[i].y = position.y
+                    positions[i].z = position.z
+                    positions[i].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
+                    //positions[Int(i)].w = 1 // star size, Mass is this "to the power of three" - model with all equal mass.
+                    total_mass += positions[Int(i)].w + positions[Int(i)].w + positions[Int(i)].w
+                    
+                    var main_axis = vector_float3 (0.0, 0.0, 1.0)
+                    
+                    let scalar = nrpos.x * main_axis.x + nrpos.y * main_axis.y + nrpos.z * main_axis.z
+                    
+                    if ((1 - scalar) < 0.000001) { // not entirely sure what this is for.
+                        main_axis.x = nrpos.y
+                        main_axis.y = nrpos.x
+                        
+                        let axis_sq = main_axis.x*main_axis.x + main_axis.y*main_axis.y + main_axis.z * main_axis.z
+                        
+                        main_axis = main_axis / axis_sq.squareRoot()
+                    }
+
+                    var velocity = vector_float4(0,0,0,0)
+
+                    // flatten
+                    positions[i].z *= flatten // flatten galaxiy.
+                    
+                    let nposition = position / sqrt(position.x * position.x + position.y * position.y + position.z * position.z) // used normalized positions for speed, as speed is approximately independent on distance from center.
+                    
+                    velocity = vector_float4(cross_product(a: nposition, b: main_axis),0)
+
+                    velocity = velocity * (vector_float4(1,1,1,0) + vrandomness * vector_float4(generate_random_normalized_vector(), 0)) // add some randomness here
+                    
+
+                    velocities[i] = velocity * vscale
+                    
+                    // squeeze fakes our way into a spiral galaxy, adjust velocities + create a bar.
+                    velocities[i].x /= squeeze
+                    velocities[i].y *= squeeze
+
+                    if ((1 - scalar) < 0.5) {
+                        // squeeze - create a bar in the middle to make for a better start.
+                        positions[i].y /= squeeze
+                    }
+                }
+     
+                
+                // apply the rotation & translation + go to camera coordinates.
+                let temp_radius = positions[i].w // save this value - as we use this for something else.
+                positions[i].w = 1 // if we don't do this, would mess up the transformation
+                velocities[i].w = 1 // otherwise this wouldn't work either.
+                positions[i] = position_transformation * positions[i]
+                velocities[i] = velocity_transformation * velocities[i]
+                positions[i].w = temp_radius // restores .w
+                
+                // in case we are "on halt", we still want it to display, e.g. copy to all buffers - maybe this should be on the GPU.
+                
+                positions2[i] = positions[i]
+                positions3[i] = positions[i]
+                velocities2[i] = velocities[i]
+                velocities3[i] = velocities[i]
+                
+                if testMode {
+                    print("func makegalaxyonlyaddparticles: position", positions[i])
+                }
             }
         }
     }

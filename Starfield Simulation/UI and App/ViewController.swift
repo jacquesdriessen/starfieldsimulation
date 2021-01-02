@@ -15,6 +15,8 @@ var trackingMatrix = matrix_identity_float4x4
 let arEnabled: Bool = true
 let testMode: Bool = true //to be able to freeze time / small amount particles
 var viewportSize: CGSize = CGSize() // The current viewport size
+var _commandQueue: MTLCommandQueue!
+
 
 @IBDesignable class MyButton: UIButton
 {
