@@ -12,10 +12,11 @@ import ARKit
 // get some global variables as otherwise we just passing things around
 var partitions = 1
 var trackingMatrix = matrix_identity_float4x4
-let arEnabled: Bool = false
+let arEnabled: Bool = true
 let testMode: Bool = false //to be able to freeze time / small amount particles
 var viewportSize: CGSize = CGSize() // The current viewport size
 var commandQueue: MTLCommandQueue!
+var fixCamera = matrix_identity_float4x4
 
 @IBDesignable class MyButton: UIButton
 {
@@ -106,6 +107,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
     var fingerScreenCoordinates: CGPoint = CGPoint(x: 0,y: 0)
     var fingerCoordinates: vector_float2 = vector_float2(0,0)
     var fingerWorldCoordinates: vector_float4 = vector_float4(0,0,0,0) // can't get these right
+    var stickyCamera : Bool = false
 
     @IBAction func arStepperValueChanged(_ sender: MyStepper) {
         showUI()
@@ -341,6 +343,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         guard gestureRecognizer.view != nil else {
             return false
         }
+        print("hello")
         // define all the simulatenously allowed gestures
         if gestureRecognizer is UIPinchGestureRecognizer &&
             (otherGestureRecognizer is UIRotationGestureRecognizer ||
@@ -350,13 +353,13 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
 
         if gestureRecognizer is UIPinchGestureRecognizer &&
             (otherGestureRecognizer is UIRotationGestureRecognizer ||
-                otherGestureRecognizer is UIPanGestureRecognizer){
+                otherGestureRecognizer is UIPanGestureRecognizer) {
             return true
         }
         
         if gestureRecognizer is UIPanGestureRecognizer &&
             (otherGestureRecognizer is UIRotationGestureRecognizer ||
-                otherGestureRecognizer is UIPinchGestureRecognizer){
+                otherGestureRecognizer is UIPinchGestureRecognizer) {
             return true
         }
         
@@ -412,13 +415,27 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
         
-        
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
 
-            trackingMatrix = cameraMatrix().inverse * rotationMatrix(rotation: vector_float3(0, -Float(velocity(gestureRecognizer.view!.superview!).x)/32768,-Float(velocity(gestureRecognizer.view!.superview!).y)/32768)) * cameraMatrix() * trackingMatrix
+            trackingMatrix = cameraMatrix().inverse * rotationMatrix(rotation: vector_float3(0, -Float(velocity(gestureRecognizer.view!.superview!).x)/32768,-Float(velocity(gestureRecognizer.view!.superview!).y)/32768)) * cameraMatrix() * trackingMatrix //32768 is coincidence.
+
+            if stickyCamera {
+                trackingMatrix = cameraMatrix().inverse * fixCamera * trackingMatrix
+                
+                fixCamera = cameraMatrix()
+            }
         }
         
+        if gestureRecognizer.state == .began && stickyCamera == false {
+            fixCamera = cameraMatrix()
+            stickyCamera = true
+        }
+        
+        if gestureRecognizer.state == .ended {
+            stickyCamera = false
+        }
+
         return true
     }
     
@@ -427,13 +444,28 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         guard gestureRecognizer.view != nil else {
             return false
         }
-        
+                
         fingerScreenCoordinates = gestureRecognizer.location(in: self.view)
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = Float(gestureRecognizer.velocity)
 
-            trackingMatrix = cameraMatrix().inverse * translationMatrix(translation:vector_float4(0,0,velocity/16,1)) * cameraMatrix() * trackingMatrix
+                trackingMatrix = cameraMatrix().inverse * translationMatrix(translation:vector_float4(0,0,velocity/16,1)) * cameraMatrix() * trackingMatrix
+
+            if stickyCamera {
+                trackingMatrix = cameraMatrix().inverse * fixCamera * trackingMatrix
+
+                fixCamera = cameraMatrix()
+            }
+        }
+        
+        if gestureRecognizer.state == .began && stickyCamera == false {
+            fixCamera = cameraMatrix()
+            stickyCamera = true
+        }
+        
+        if gestureRecognizer.state == .ended {
+            stickyCamera = false
         }
         
         return true
@@ -451,8 +483,23 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
             let velocity = gestureRecognizer.velocity
 
             trackingMatrix = cameraMatrix().inverse * rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * cameraMatrix() * trackingMatrix
+
+            if stickyCamera {
+                trackingMatrix = cameraMatrix().inverse * fixCamera * trackingMatrix
+                
+                fixCamera = cameraMatrix()
+            }
         }
         
+        if gestureRecognizer.state == .began && stickyCamera == false {
+            fixCamera = cameraMatrix()
+            stickyCamera = true
+        }
+        
+        if gestureRecognizer.state == .ended {
+            stickyCamera = false
+        }
+
         return true
     }
 
