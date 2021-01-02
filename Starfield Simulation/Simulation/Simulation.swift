@@ -166,7 +166,13 @@ class StarSimulation : NSObject {
         
         let anchor = first == 0 ? Int(_config.numBodies - 1) : first - 1
         let position_anchor = positions[anchor]
-        let position_last = position_transformation * vector_float4(0, 0, 0, 1)
+      //  let position_last = position_transformation * vector_float4(0, 0, 0, 1)
+        var position_last = trackingMatrix.inverse * translationMatrix(translation:vector_float3(0,0,0)) * finger
+       //position_last.x = 0.75 * position_last.x
+        camera.inverse  
+        //print("finger", finger)
+        //print("camera", camera.columns.3)
+        position_last = /* translationMatrix(translation: vector_float3(0,0,-1)) */ trackingMatrix.inverse * finger
         
         
         for index in first...last {
@@ -451,7 +457,7 @@ class StarSimulation : NSObject {
         return Float(blocks[0].begin)/Float(_config.numBodies)
     }
 
-    func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer, touch: vector_float2, finger: vector_float4) {
+    func simulateFrameWithCommandBuffer(commandBuffer: MTLCommandBuffer, finger: vector_float4) {
         if (halt && interact) { // need to clearn this up, this is nonsensical this way
 /* anyway, this sort of works, probably can go in .  */
             

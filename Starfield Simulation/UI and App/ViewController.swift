@@ -12,7 +12,8 @@ import ARKit
 // get some global variables as otherwise we just passing things around
 var partitions = 1
 var trackingMatrix = matrix_identity_float4x4
-let arEnabled: Bool = true
+let arEnabled: Bool = false
+let testMode: Bool = true //to be able to freeze time / small amount particles
 
 @IBDesignable class MyButton: UIButton
 {
@@ -277,7 +278,13 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.01, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000320, simDuration: 100 /* dont think thtis was implemented */)
      //   _config = SimulationConfig(damping: 1, softeningSqr: 0.08, numBodies: 16384, clusterScale: 0.05, velocityScale: 25000, renderScale: 20, renderBodies: 16 /* not implemented */, simInterval: 0.0000640, simDuration: 100 /* dont think thtis was implemented */) // this is fairly realistic (my opinion)
       //  _config = SimulationConfig(damping: 1, softeningSqr: 2*2*0.16, numBodies: 2*32768, clusterScale: 0.05, velocityScale: 25000, renderScale: 2*40, renderBodies: 16 /* not implemented */, simInterval: 2*2*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
+
+        if (!testMode) {
         _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 262144, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 1/16*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // can go up this high because of the hack, but takes a long time to "load" a galaxy, maybe something we can do (copying could be done on the GPU?)
+        } else {
+        // test mode, just a few particles, time frozen.
+        _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 1024, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 0, simDuration: 100 /* dont think thtis was implemented */) // can go up this high because of the hack, but takes a long time to "load" a galaxy, maybe something we can do (copying could be done on the GPU?)
+        }
         
         // Configure the renderer to draw to the view
         renderer = Renderer(session: session, metalDevice: _view.device!, renderDestination: _view, numBodies: Int(_config.numBodies))
@@ -407,7 +414,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
-            let centerMatrix = cameraMatrix()
+            let centerMatrix = arEnabled ? cameraMatrix() : matrix_identity_float4x4
             
             trackingMatrix = centerMatrix * rotationMatrix(rotation: vector_float3(0, -Float(velocity(gestureRecognizer.view!.superview!).x)/32768,-Float(velocity(gestureRecognizer.view!.superview!).y)/32768)) * centerMatrix.inverse * trackingMatrix
         }
@@ -425,7 +432,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = Float(gestureRecognizer.velocity)
-            let centerMatrix = cameraMatrix()
+            let centerMatrix = arEnabled ? cameraMatrix() : matrix_identity_float4x4
 
             trackingMatrix = centerMatrix * translationMatrix(translation:vector_float4(0,0,velocity/16,1)) * centerMatrix.inverse * trackingMatrix
         }
@@ -443,7 +450,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         if gestureRecognizer.state == .began || gestureRecognizer.state == .changed {
             let velocity = gestureRecognizer.velocity
-            let centerMatrix = cameraMatrix()
+            let centerMatrix = arEnabled ? cameraMatrix() : matrix_identity_float4x4
 
             trackingMatrix = centerMatrix * rotationMatrix(rotation: vector_float3(-Float(velocity)/35, 0, 0)) * centerMatrix.inverse * trackingMatrix
         }
@@ -482,32 +489,48 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
     }
     
     func screenCoordinatesToNormalCoordinates(screenCoordinates: CGPoint) -> vector_float2 {
+
         let x : Float = 1  * ( 2 * Float(screenCoordinates.x) / Float(view.frame.size.width) - 1) // 0.001 is that scaling factor
         let y : Float = -1 * ( 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1) // for whatever reason this is upside down. I think because top left = 0,0 / top bottom = 1 1 in "texture space".
 
-        return vector_float2(x,y)
+        return vector_float2(0.75 * x, y) // need to figure out why this is, seems like aspect ratio, how do we find out????
     }
     
-    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 {
+    func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 { // this is the world coordinates as "AR" sees them, leave out all the stuff for our trackingmatrix, needs to be handled last step.
         // https://jsantell.com/3d-projection/ to learn about projections.
         // there should be a more straightforward way, but I think this makes sense to me.
 
-        let forward_transform = projectionMatrix() * (arEnabled ?  cameraMatrix() : matrix_identity_float4x4)                    // transformation (<- direction) device3D  <- world
-        let inverse_transform = (arEnabled ?  cameraMatrix().inverse : matrix_identity_float4x4) * projectionMatrix().inverse     // transformation (<- direction) world     <- device3D
+        let forward_transform = projectionMatrix() * (arEnabled ? cameraMatrix() : matrix_identity_float4x4)                  // transformation (<- direction) device3D  <- world
+        let inverse_transform = (arEnabled ? cameraMatrix().inverse : matrix_identity_float4x4) * projectionMatrix().inverse     // transformation (<- direction) world     <- device3D
                                                                                         // transformation (<- direction) device2D  <- device3D = drop z & w
                                                                                         // transformation (<- direction) device3D  <- device2D is the hard bit, requires knowledge of the device (end of the day 2D) and it's orientation & how it scales to the real world. For the middle of device & world, it's easy.
 
         
         // where the device is right now.
-        let deviceMiddle_world = cameraMatrix().columns.3 // column 3 = position of the camera
-        let deviceMiddle_device3D = forward_transform * deviceMiddle_world
-
+        let deviceMiddle_world = (arEnabled ? cameraMatrix() : matrix_identity_float4x4).columns.3 // column 3 = position of the camera (or could multiply by (0,0,0,1)
+        let deviceMiddle_device3D = cameraMatrix() * deviceMiddle_world
         // where we are on the tablet
         let deviceCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates:screenCoordinates)
         let deviceCoordinates_device3D = vector_float4(deviceCoordinates.x, deviceCoordinates.y, 0, 0) // This is 2D I know, but need to find away to deal with orientation!!
+ //working more or less
+    /*    let point = inverse_transform * deviceMiddle_device3D + extractOrientationMatrix(fullmatrix: (arEnabled ? cameraMatrix().inverse : matrix_identity_float4x4)) * inverse_transform * deviceCoordinates_device3D; //  first part is to make sure we do everything compared to where the device, is second is the screen, but need to make sure we correct for the plane of the device (e.g. just the rotation of the camera.
+    
+           for (0,0,0) first, e.g. basically it's uncollapsed in a sense already.
+           have our "device coordinates"s. (x/y plane), but missing y and w, only way to get that is ",
+         add our camera position (middle), but then it's in the wrong plane, so really best way to tackle is, invert translate & rotate to our camera coordinates (without projection),
+         then translate & rotate back, however then would want this to be "collapsed & projected", so we have proper coordinates & then do all of the inverse transform. The last steps are cancelling out, so technically should be equivalent to just taking the 2D thing, and do the inverse of the camera.
+         
+         translationMatrix(translation: vector_float3(0,0,-0.05)) *
+         */
         
-        let point = inverse_transform * deviceMiddle_device3D + extractOrientationMatrix(fullmatrix: cameraMatrix()) * inverse_transform * deviceCoordinates_device3D; //  first part is to make sure we do everything compared to where the device, is second is the screen, but need to make sure we correct for the plane of the device (e.g. just the rotation of the camera.
-
+        let point = (arEnabled ? cameraMatrix().inverse : matrix_identity_float4x4)
+            * (deviceMiddle_device3D + 0.01*deviceCoordinates_device3D + vector_float4(0,0,-0.10,0)) // - deviceCoordinates_device3D +
+        
+        print(deviceMiddle_device3D, deviceCoordinates_device3D, point)
+        print(point)
+            
+        
+        
         return point
         
     }
@@ -549,7 +572,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         
         // handle screen to world for finger
         fingerWorldCoordinates = screenCoordinatesToWorldCoordinates(screenCoordinates: fingerScreenCoordinates)
-        fingerCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates: fingerScreenCoordinates)
+     //   fingerCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates: fingerScreenCoordinates)
         
         // pass camera position through to simulation, need to be smarter about this.
         if let currentFrame = session.currentFrame {
@@ -566,7 +589,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
             
             commandBuffer.pushDebugGroup("Controller Frame")
             
-            _simulation.simulateFrameWithCommandBuffer(commandBuffer: commandBuffer, touch: fingerCoordinates, finger: fingerWorldCoordinates)
+            _simulation.simulateFrameWithCommandBuffer(commandBuffer: commandBuffer, finger: fingerWorldCoordinates)
             
             commandBuffer.commit()
             commandBuffer.popDebugGroup()

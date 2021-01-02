@@ -429,7 +429,7 @@ class Renderer {
             
         uniforms.pointee.viewMatrix = viewMatrix
         uniforms.pointee.sharedMatrix = projectionMatrix * viewMatrix
-        
+       
         //let myvector = vector_float4(0,0,0,1)
         //let myvector2 = vector_float4(1,1,0,1)
         //let myvector3 = vector_float4(0,0,-1,1)
