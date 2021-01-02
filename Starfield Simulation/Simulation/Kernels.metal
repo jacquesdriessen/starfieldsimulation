@@ -257,7 +257,7 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
         float3 rpos = abs(random_normalized_vector(seed));
         
         position.xyz = nrpos * (inner + ((outer-inner) * rpos));
-        float radius = 1 / random(0.465, 1, seed); //random(1, 2.15, seed);
+        float radius = 1 / random(0.465, 1, seed); //random(1, 2.15, seed); // 1 / random(0.465, 1, seed); could use something more "real" here.
         totalMass[threadInGroup] += radius * radius * radius /* power of three */;
 
         float3 my_axis = main_axis;
@@ -274,7 +274,7 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
         
         velocity.xyz = cross(normalize(position.xyz), my_axis);
         
-        velocity.xyz += vrandomness * dot(velocity.xyz, random(seed));
+        velocity.xyz += vrandomness * dot(velocity.xyz, random_normalized_vector(seed));
         
         velocity.xyz *= vscale;
         
@@ -326,6 +326,8 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
     }
     
     // @this point each thread has the total mass in totalMass[threadInGroup], as thread zero will always have the longest runtime, have that thread calculate the total mass
+    // removed, either this is wrong, or the cpu code got different results, removed.
+    /*
     if (threadInGroup == 0) {
         float blackHoleMass = 0;
         for (uint i = 0; i < numThreadsInGroup; i++)
@@ -346,7 +348,7 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
     }
     
     // how do we calculate the real total mass, + we need to deal with the black hole stuff outside of this I would say, unless there is a smart way! fencing I believe.
-    
+    */
     return;
 }
 

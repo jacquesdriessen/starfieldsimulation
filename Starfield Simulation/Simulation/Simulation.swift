@@ -487,7 +487,7 @@ class StarSimulation : NSObject {
         switch model {
         case 0: // one flat galaxy
             if (!testMode) {
-                makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.05, squeeze: 2)
+                makegalaxy(first:0, last: Int(_config.numBodies) - 1, flatten: 0.05, vrescale: 0.5, squeeze: 2)
             } else {
                 let onefourth = Int(_config.numBodies)/4
                 let scale : Float = 0.25
