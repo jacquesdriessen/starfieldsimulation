@@ -70,6 +70,7 @@ typedef struct
  //   half3  eyePosition;
     half4  color;
     float  radius;
+    float  starSize;
     uint   vertexID;
 } StarColorInOut;
 
@@ -107,6 +108,7 @@ vertex StarColorInOut starVertexShader(
     out.pointSize = out.radius * sharedUniforms.starSize / distance((modelViewMatrix * position).xyz, out.position.xyz); // NEED CHECK WITH ALL THE NON AR STUFF STILL OK?
     
     out.vertexID = vertexID;
+    out.starSize = sharedUniforms.starSize;
     
     return out;
 }
@@ -129,9 +131,9 @@ fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
     half4 y = half4(1.0h, 0.7h, 0.3h, fragColor.w);
     half  a = fragColor.w;
 
-    if (inColor.radius > 10) { // this is when we interact, don't show.... actually that's the whole point right?, so show in bright yellow.
+    if (inColor.radius > (10.0 * inColor.starSize)) { // this is when we interact, don't show.... actually that's the whole point right?, so show in bright yellow.
           fragColor = half4(1.0h, 1.0h, .0h, fragColor.w);
-    } else if (inColor.radius > 2.5) { // black hole is green
+    } else if (inColor.radius > (2.5 * inColor.starSize)) { // black hole is green
         fragColor = half4(.0h, 1.0h, .0h, fragColor.w);
     } else if (falseColour) {
         float angle = M_PI_F * float(inColor.vertexID) * partitioner;
@@ -147,10 +149,10 @@ fragment half4 starFragmentShader(StarColorInOut inColor [[stage_in]],
         //y = half4(rr, gg, bb, 1.0h);
         fragColor = half4(rr, gg, bb, fragColor.w);
     }
-    else if (inColor.radius > 1.5) { // big stars are blue-ish
+    else if (inColor.radius > (1.5 * inColor.starSize)) { // big stars are blue-ish
         fragColor = half4(0.5h * fragColor.x, 0.5h * fragColor.y, 0.5h + 0.5h * fragColor.z, fragColor.w);
         
-    } else if (inColor.radius < 1.2) { // small stars are reddish
+    } else if (inColor.radius < (1.2 * inColor.starSize)) { // small stars are reddish
         fragColor = half4(0.5h + 0.5h * fragColor.x, 0.5h * fragColor.y, 0.5h * fragColor.z, fragColor.w);
     }
         

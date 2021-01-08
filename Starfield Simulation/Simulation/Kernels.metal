@@ -43,9 +43,11 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
                             const uint               threadInGroup     [[ thread_position_in_threadgroup            ]],
                             const uint               numThreadsInGroup [[ threads_per_threadgroup                   ]])
 {
-    const uint partitions = 16;//block.collide? 1 : _partitions; // const uint split = block.collide? params.numBodies : block.split;
+    const uint partitions = params.numBodies / 16384; // could make this dynamic, for now depend on # particles. baseline for this was 16384 particles.
+    
+    //block.collide? 1 : _partitions; // const uint split = block.collide? params.numBodies : block.split;
 
-    float interaction_multiplier = partitions / ( block.collide? 1 : _partitions); // As w are cheating (only calculating 1 / partitions each pass), in collide mode it's easy, multiply by partitions (*16), in the other mode, we need to account for the partitions the calculating thinks we have (in case of == partitions, don't need to do anything).
+    float interaction_multiplier = float(partitions) / ( block.collide? float(1) : float(_partitions)); // As w are cheating (only calculating 1 / partitions each pass), in collide mode it's easy, multiply by partitions (*16), in the other mode, we need to account for the partitions the calculating thinks we have (in case of == partitions, don't need to do anything).
 
     if (pass == 0 || (block.collide == false && _partitions > 1)) // if no collissions, in principle only execute the "kernel where things only interact in the partition, however if 1 partition, can still alternate between things and make it more real (otherwise we would create a galaxy that will eventually split up in partitions, maybe something smart we can do to have that for different partition sizes but this is just for fun :-).
     {
@@ -97,8 +99,7 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
         currentVelocity.xyz += params.gravity * acceleration * params.timestep * interaction_multiplier;
         currentVelocity.xyz *= params.damping; // this is tricky, assumption it's semi stationary.
         
-        currentPosition.xyz += currentVelocity.xyz * params.timestep * interaction_multiplier;
-        
+        currentPosition.xyz += currentVelocity.xyz * params.timestep; // don't think we want this here, if things become slower, need to account elsewhere * interaction_multiplier;
         currentPosition.xyz *= params.squeeze; // squeeze space.
         
         // tracking
@@ -157,7 +158,7 @@ kernel void NBodySimulation(device float4*           newPosition       [[ buffer
         currentVelocity.xyz += params.gravity * acceleration * params.timestep * interaction_multiplier;
         currentVelocity.xyz *= params.damping; // this is tricky, assumption it's semi stationary.
         
-        currentPosition.xyz += currentVelocity.xyz * params.timestep * interaction_multiplier;
+        currentPosition.xyz += currentVelocity.xyz * params.timestep; // don't think we want this here, if things become slower, need to account elsewhere * interaction_multiplier;
         
         currentPosition.xyz *= params.squeeze; // squeeze space.
         
@@ -221,6 +222,7 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
                              constant float & vrandomness [[ buffer(16) ]],
                              constant float & squeeze [[ buffer(17) ]],
                              constant uint & randomSeed [[ buffer(18) ]],
+                             constant float & rscale [[ buffer(19) ]],
                              threadgroup float * totalMass [[ threadgroup(0)  ]],
                              const uint threadInGrid [[ thread_position_in_grid ]],
                              const uint threadInGroup [[ thread_position_in_threadgroup ]],
@@ -257,7 +259,7 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
         float3 rpos = abs(random_normalized_vector(seed));
         
         position.xyz = nrpos * (inner + ((outer-inner) * rpos));
-        float radius = 1 / random(0.465, 1, seed); //random(1, 2.15, seed); // 1 / random(0.465, 1, seed); could use something more "real" here.
+        float radius = rscale / random(0.465, 1, seed); //random(1, 2.15, seed); // 1 / random(0.465, 1, seed); could use something more "real" here.
         totalMass[threadInGroup] += radius * radius * radius /* power of three */;
 
         float3 my_axis = main_axis;

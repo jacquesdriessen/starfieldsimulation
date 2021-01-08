@@ -150,7 +150,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
     @IBAction func gravityStepperValueChanged(_ sender: UIStepper) {
         showUI()
         gravityLabel.text = "Gravity: " + String (Int(sender.value)) + "%"
-        _simulation.gravity = Float(sender.value)
+        _simulation.gravity = Float(sender.value) * 262144 / Float(_config.numBodies) // everything baselines for this many particles - this really needs to be moved elsewhere, but quick hack to make it work.
     }
     
     @IBOutlet weak var timeLabel: MyStepperLabel!
@@ -282,7 +282,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
       //  _config = SimulationConfig(damping: 1, softeningSqr: 2*2*0.16, numBodies: 2*32768, clusterScale: 0.05, velocityScale: 25000, renderScale: 2*40, renderBodies: 16 /* not implemented */, simInterval: 2*2*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // also fairly realistic  with these # particles
 
         if (!testMode) {
-        _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 262144, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 1/16*0.0002560, simDuration: 100 /* dont think thtis was implemented */) // can go up this high because of the hack, but takes a long time to "load" a galaxy, maybe something we can do (copying could be done on the GPU?)
+        _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 262144, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 0.0005, simDuration: 100 /* dont think thtis was implemented */) // can go up this high because of the hack, but takes a long time to "load" a galaxy, maybe something we can do (copying could be done on the GPU?)
         } else {
         // test mode, just a few particles, time frozen.
         _config = SimulationConfig(damping: 0.999, softeningSqr: 0.128, numBodies: 8192, clusterScale: 0.035, velocityScale: 4000, renderScale: 1, renderBodies: 16 /* not implemented */, simInterval: 0, simDuration: 100 /* dont think thtis was implemented */) // can go up this high because of the hack, but takes a long time to "load" a galaxy, maybe something we can do (copying could be done on the GPU?)
@@ -343,7 +343,6 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         guard gestureRecognizer.view != nil else {
             return false
         }
-        print("hello")
         // define all the simulatenously allowed gestures
         if gestureRecognizer is UIPinchGestureRecognizer &&
             (otherGestureRecognizer is UIRotationGestureRecognizer ||
@@ -560,7 +559,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         return float4x4(col0, col1, col2, col3)
     }
 
-    func screenCoordinatesToNormalCoordinates(screenCoordinates: CGPoint) -> vector_float2 {
+    func screenCoordinatesToNormalCoordinates(screenCoordinates: CGPoint, z: Float = 0) -> vector_float4 {
 /*
         let x : Float = 1  * ( 2 * Float(screenCoordinates.x) / Float(view.frame.size.width) - 1) // 0.001 is that scaling factor
         let y : Float = -1 * ( 2 * Float(screenCoordinates.y) / Float(view.frame.size.height) - 1) // for whatever reason this is upside down. I think because top left = 0,0 / top bottom = 1 1 in "texture space".
@@ -573,8 +572,10 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         let scaling_y : Float = -2.0 / Float(view.frame.size.height)
         let x: Float = centered_x * scaling_x
         let y: Float = centered_y * scaling_y
+        let w : Float = -z
+
         
-        return vector_float2(x, y)
+        return vector_float4(x*w, y*w, w - ((1000.0 * 0.001)/(1000.0-0.001)), w) // 1000 = far, 0.001 near
     }
     
     func screenCoordinatesToWorldCoordinates(screenCoordinates: CGPoint) -> vector_float4 {
@@ -587,8 +588,7 @@ class ViewController: UIViewController, UIGestureRecognizerDelegate, MTKViewDele
         let device_origin = projectionMatrix() * device_origin_world
 
         
-        let pointCoordinates = screenCoordinatesToNormalCoordinates(screenCoordinates:screenCoordinates)
-        let point = vector_float4(pointCoordinates.x, pointCoordinates.y, device_origin.z, device_origin.w)
+        let point = screenCoordinatesToNormalCoordinates(screenCoordinates:screenCoordinates, z: -0.5)
         let point_world = projectionMatrix().inverse * point
         let point_world_as_viewed_from_camera = (arEnabled ? cameraMatrix() : matrix_identity_float4x4).inverse * point_world
         

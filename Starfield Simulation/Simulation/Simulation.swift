@@ -33,6 +33,8 @@ class StarSimulation : NSObject {
     let block_size: UInt32 = 2048 // will get ~ 60 fps on iphone 8. max particles that we can calculate before we need to redraw, for iphone 8 / my ipad 2048 if we need 32768 bodies is a good choice, 4096 for 8192 etc. (n*n calculations, so this needs to scale as 1/n*n)
     var _blocks = [MTLBuffer]()
     
+    var profiler = CFAbsoluteTimeGetCurrent()
+    
     let blockSemaphore = DispatchSemaphore(value: 1) // don't have overlapping block calculations
 
     var _device: MTLDevice!
@@ -279,6 +281,7 @@ class StarSimulation : NSObject {
         let inner : Float = 2.5 * pscale
         let outer : Float = 4.0 * pscale
         var total_mass: Float = 0
+        let rscale = pow( 262144.0 / Float(_config.numBodies), 1.0/3.0) // this keeps the total mass of the galaxy independent of how many particles we use to render // dirty hack, would want this somewhere else I believe. Note we use r (not mass) for computations.
 
         let rightInFrontOfCamera = simd_mul(camera, translationMatrix(translation:vector_float3(0,0,-0.5))) //0.5 meters in front of the camera, so we can see it!
         let rotation_matrix = rotationMatrix(rotation: axis)
@@ -307,6 +310,15 @@ class StarSimulation : NSObject {
                 
                 commandBuffer.pushDebugGroup("Galaxy Creation")
 
+                commandBuffer.addCompletedHandler{ [weak self] commandBuffer in
+                    if let strongSelf = self {
+                        strongSelf.blockSemaphore.signal()
+                        print(CFAbsoluteTimeGetCurrent() - strongSelf.profiler)
+                    }
+                }
+                
+                profiler = CFAbsoluteTimeGetCurrent()
+                
                 // otherwise we cannot pass them to the shader, I think because it has free access to all memory
                 var _first = first
                 var _last = last
@@ -316,7 +328,8 @@ class StarSimulation : NSObject {
                 var _vrescale = vrescale
                 var _vrandomness  = vrandomness
                 var _squeeze = squeeze
-            
+                var _rscale = rscale
+ 
                 let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
                 computeEncoder.setComputePipelineState(galaxyPipeline)
                 computeEncoder.setBuffer(_positions[0], offset: 0, index: 0)
@@ -338,6 +351,7 @@ class StarSimulation : NSObject {
                 computeEncoder.setBytes(&_vrandomness, length: MemoryLayout<Float>.size, index: 16)
                 computeEncoder.setBytes(&_squeeze, length: MemoryLayout<Float>.size, index: 17)
                 computeEncoder.setBytes(&randomSeed, length: MemoryLayout<UInt>.size, index: 18)
+                computeEncoder.setBytes(&_rscale, length: MemoryLayout<Float>.size, index: 19)
 
                 computeEncoder.setThreadgroupMemoryLength(_threadgroupMemoryLength, index: 0) // assume this is the threadgroup memory we use for stuff, need to better understand.
                 computeEncoder.dispatchThreadgroups(dispatchExecutionSizeGalaxyCreation, threadsPerThreadgroup: threadsPerThreadgroupGalaxyCreation)
@@ -370,7 +384,7 @@ class StarSimulation : NSObject {
                     positions[i].x = position.x
                     positions[i].y = position.y
                     positions[i].z = position.z
-                    positions[i].w = 1 / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
+                    positions[i].w = rscale / Float.random(in: 0.465...1) // star size, Mass is this "to the power of three", masses differ factor 10 max, sizes 1..2.15
                     //positions[Int(i)].w = 1 // star size, Mass is this "to the power of three" - model with all equal mass.
                     total_mass += positions[Int(i)].w + positions[Int(i)].w + positions[Int(i)].w
                     
@@ -600,7 +614,7 @@ class StarSimulation : NSObject {
                 
                 let params = _simulationParams.contents().assumingMemoryBound(to: StarSimParams.self)
                 params[0].timestep = _config.simInterval * (speed/100)
-                params[0].gravity = (gravity/100)
+                params[0].gravity = (gravity/100) * 0.1
                 params[0].squeeze = pinch
                  
                 let date = Date()
@@ -754,9 +768,11 @@ class StarSimulation : NSObject {
             commandBuffer.addCompletedHandler{ [weak self] commandBuffer in
                 if let strongSelf = self {
                     strongSelf.blockSemaphore.signal()
+                    //print(CFAbsoluteTimeGetCurrent() - strongSelf.profiler)
                 }
             }
             
+            profiler = CFAbsoluteTimeGetCurrent()
             let computeEncoder = commandBuffer.makeComputeCommandEncoder()!
             computeEncoder.setComputePipelineState(_computePipeline)
             
