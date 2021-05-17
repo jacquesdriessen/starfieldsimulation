@@ -112,14 +112,20 @@ class StarSimulation : NSObject {
             print("Failed to create createGalaxy pipeline state, error \(error)")
         }
 
-        
-        
+        // Since this doesn't work, I think this means SIMD won't work (the option thereafter forces things to avoid SIMD, and then code seems then to be working).
+       /* let oneDimParticles : Int = Int(min(block_size, _config.numBodies))
+        let oneDimthreadsperThreadgroup : Int = min(_computePipeline.maxTotalThreadsPerThreadgroup, _computePipeline.threadExecutionWidth * (oneDimParticles / _computePipeline.threadExecutionWidth))
+        _threadsperThreadgroup = MTLSizeMake(min(oneDimthreadsperThreadgroup, oneDimParticles), 1, 1)
+        _dispatchExecutionSize = MTLSizeMake(oneDimParticles / oneDimthreadsperThreadgroup, 1, 1)
+        print(oneDimParticles, _threadsperThreadgroup, _dispatchExecutionSize)
+        */
         _threadsperThreadgroup = MTLSizeMake(_computePipeline.threadExecutionWidth, 1, 1)
         _dispatchExecutionSize = MTLSizeMake((Int(min(block_size, _config.numBodies)) + _computePipeline.threadExecutionWidth - 1) / _computePipeline.threadExecutionWidth, 1, 1)
+        print(Int(min(block_size, _config.numBodies)), _threadsperThreadgroup, _dispatchExecutionSize)
         _threadgroupMemoryLength = _computePipeline.threadExecutionWidth * MemoryLayout<vector_float4>.size
         
         threadsPerThreadgroupGalaxyCreation = MTLSizeMake(galaxyPipeline.threadExecutionWidth, 1, 1)
-        dispatchExecutionSizeGalaxyCreation = MTLSizeMake(galaxyPipeline.threadExecutionWidth, 1, 1) // just want "one go".
+        dispatchExecutionSizeGalaxyCreation = MTLSizeMake(galaxyPipeline.threadExecutionWidth, 1, 1) // just want "one go", this is suboptimal by the way as usually there is several cores (e.g. 3 on iphone 8 I believe etc.).
         
         //print(threadsPerThreadgroupGalaxyCreation, dispatchExecutionSizeGalaxyCreation);
         

@@ -355,3 +355,155 @@ kernel void createGalaxy    (device float4* position1 [[ buffer(0) ]],
 }
 
 
+kernel void createStationaryGalaxy    (device float4* position1 [[ buffer(0) ]],
+                             device float4* velocity1 [[ buffer(1) ]],
+                             device float4* position2 [[ buffer(2) ]],
+                             device float4* velocity2 [[ buffer(3) ]],
+                             device float4* position3 [[ buffer(4) ]],
+                             device float4* velocity3 [[ buffer(5) ]],
+                             constant float & clusterScale [[ buffer(6) ]],
+                             constant float & velocityScale [[ buffer(7) ]],
+                             constant uint & first [[ buffer(8) ]],
+                             constant uint & last  [[ buffer(9) ]],
+                             constant float4x4 & positionTransform [[ buffer(10) ]],
+                             constant float4x4 & velocityTransform [[ buffer(11) ]],
+                             constant float4 & axis [[ buffer(12) ]],
+                             constant float & flatten [[ buffer(13) ]],
+                             constant float & prescale [[ buffer(14) ]],
+                             constant float & vrescale [[ buffer(15) ]],
+                             constant float & vrandomness [[ buffer(16) ]],
+                             constant float & squeeze [[ buffer(17) ]],
+                             constant uint & randomSeed [[ buffer(18) ]],
+                             constant float & rscale [[ buffer(19) ]],
+                             threadgroup float * totalMass [[ threadgroup(0)  ]],
+                             const uint threadInGrid [[ thread_position_in_grid ]],
+                             const uint threadInGroup [[ thread_position_in_threadgroup ]],
+                             const uint numThreadsInGroup [[ threads_per_threadgroup ]])
+{
+    // idea, just have as many threads as we can, and have each of those "work on 1/threads" of the workload, not all threads may need to do work, e.g. if last-first < number of threads, we have a lot of threads doing nothing, if last - first not complete a multiple of the number of threads, the last thread will be finished faster.
+    
+    uint blockSize = 1 + ((last - first - 1) / numThreadsInGroup);
+    
+    uint start = threadInGroup * blockSize + first;
+    uint end = min((threadInGroup + 1) * blockSize + first - 1, last);
+    
+    if (start > last) {
+        return; // nothing to do
+    }
+    
+    // generic bit
+    float pscale = clusterScale * prescale;
+    float vscale = velocityScale * pscale * vrescale;
+    float inner = 2.5 * pscale;
+    float outer = 4.0 * pscale;
+    totalMass[threadInGroup] = 0;
+    float inverseSqueeze = 1/squeeze;
+    
+    float3 main_axis = float3(0.0f, 0.0f, 1.0f);
+    
+    for (uint i=first; i<=end; i++) {
+        float4 position = float4(0,0,0,1); // last = 1 so it's matrix transformable
+        float4 velocity = float4(0,0,0,1);
+        
+        int3 seed = int3(randomSeed, i, threadInGroup);
+        
+        float3 nrpos = random_normalized_vector(seed);
+        float3 rpos = abs(random_normalized_vector(seed));
+        
+        position.xyz = nrpos * (inner + ((outer-inner) * rpos));
+        float radius = rscale / random(0.465, 1, seed); //random(1, 2.15, seed); // 1 / random(0.465, 1, seed); could use something more "real" here.
+        totalMass[threadInGroup] += radius * radius * radius /* power of three */;
+        
+        float3 my_axis = main_axis;
+        float scalar = dot(nrpos, my_axis);
+        
+        if ((1 - scalar) < 0.000001) { // not entirely sure what this is for.
+            my_axis.x = nrpos.y;
+            my_axis.y = nrpos.x;
+            
+            my_axis = normalize(my_axis);
+        }
+        
+        position.z *= flatten; // flatten galaxy
+        
+        velocity.xyz = 0;/*cross(normalize(position.xyz), my_axis);
+        
+        velocity.xyz += vrandomness * dot(velocity.xyz, random_normalized_vector(seed));
+        
+        velocity.xyz *= vscale;
+        
+        velocity.x *= squeeze;
+        velocity.y *= inverseSqueeze;*/
+        
+        if ((1 - scalar) < 0.5) {
+            // squeeze - create a bar in the middle to make for a better start.
+            position.y *= inverseSqueeze;
+        }
+        
+        //position.xyz = pscale * random_normalized_vector(seed);
+        
+        /*
+         // simple "round" galaxy, for testing, maybe should have "types".
+         position.x = random(-1.0f, 1.0f, seed);
+         position.y = random(-1.0f, 1.0f, seed);
+         position.z = random(-1.0f, 1.0f, seed);
+         position.xyz = pscale * normalize(position.xyz);
+         velocity = 0;
+         */
+        
+        /*
+         // simple "round" galaxy, created another way, all on the outside V2, for testing, maybe should have "types".
+         position.xyz = random_vector(pscale, pscale, seed);
+         velocity = 0;
+         */
+        /*
+         // last test, should also create the same
+         position.xyz = pscale * random_normalized_vector(seed);
+         velocity = 0;
+         */
+        
+        position = positionTransform * position;
+        velocity = velocityTransform * velocity;
+        
+        position.w = radius; // waited until here because otherwise this would affect our transformation.
+        
+        
+        // copy results to all three buffers
+        position1[i] = position;
+        position2[i] = position;
+        position3[i] = position;
+        
+        velocity1[i] = velocity;
+        velocity2[i] = velocity;
+        velocity3[i] = velocity;
+        
+    }
+    
+    // @this point each thread has the total mass in totalMass[threadInGroup], as thread zero will always have the longest runtime, have that thread calculate the total mass
+    // removed, either this is wrong, or the cpu code got different results, removed.
+    /*
+     if (threadInGroup == 0) {
+     float blackHoleMass = 0;
+     for (uint i = 0; i < numThreadsInGroup; i++)
+     blackHoleMass += totalMass[i];
+     
+     // create black Hole
+     position1[first].xyz = 0;
+     position1[first].w = pow (0.0025 * 65000, 0.33333333); // 3d root of 1/400 of the total mass.
+     velocity1[first].xyz = 0;
+     
+     //copy to the other buffers;
+     position2[first] = position1[first];
+     position3[first] = position1[first];
+     
+     velocity2[first] = velocity1[first];
+     velocity3[first] = velocity1[first];
+     
+     }
+     
+     // how do we calculate the real total mass, + we need to deal with the black hole stuff outside of this I would say, unless there is a smart way! fencing I believe.
+     */
+    return;
+}
+
+
